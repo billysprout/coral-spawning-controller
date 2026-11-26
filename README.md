@@ -43,7 +43,7 @@ changed unless you pass `--force`. `scripts/cue_schema.py validate <dir>` runs
 the same check on a cue-table repository.
 
 The spawning records the reef windows come from: the
-[Spawning Array](https://realfakedoors-idaho.github.io/).
+[Spawning Array](https://realfakedoors-idaho.github.io/reef-cue-tables/).
 
 ## What is in it
 
@@ -58,7 +58,7 @@ The spawning records the reef windows come from: the
 * `tests/`: 22 test files. Import the cue tables first (several tests read
   them), then `docker compose --profile test run --rm tests`.
 
-Built from commit `6dde458` of the project repository.
+Built from commit `2c15294` of the project repository.
 
 ## Known limits
 
