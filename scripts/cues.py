@@ -72,10 +72,17 @@ def active_params_path() -> str:
 def reference_params_path() -> str:
     """The Okinawa reference parameters: shipped beside this module in the
     research repo, else installed from the cue-table repo by cue_import.py at
-    <data>/reference/cue_params.json (the public controller ships none)."""
+    <data>/reference/cue_params.json (the public controller ships none). The
+    repo's own data/reference is the fallback, so a run with TANK_DATA pointed
+    elsewhere (the test service uses /tmp/nodata) still finds the installed copy."""
     if os.path.exists(DEFAULT_PARAMS_PATH):
         return DEFAULT_PARAMS_PATH
-    data = os.environ.get("TANK_DATA", os.path.join(os.path.dirname(_HERE), "data"))
+    repo_data = os.path.join(os.path.dirname(_HERE), "data")
+    data = os.environ.get("TANK_DATA", repo_data)
+    for d in (data, repo_data):
+        p = os.path.join(d, "reference", "cue_params.json")
+        if os.path.exists(p):
+            return p
     return os.path.join(data, "reference", "cue_params.json")
 
 

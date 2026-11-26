@@ -258,7 +258,9 @@ def load_calendar(path: str, params=None) -> Calendar:
                        " (%s)" % res["error"] if res.get("error") else ""))
         except (OSError, ValueError):
             problems.append("data_manifest_check_unreadable")
-    return Calendar(path, rows, problems)
+    cal = Calendar(path, rows, problems)
+    cal.params = params        # the planner's local time follows the params the calendar was loaded with
+    return cal
 
 
 # ---------------------------------------------------------------------------
@@ -343,7 +345,7 @@ def plan_at(cal: Calendar, cfg: dict, when: dt.datetime, params=None):
     """Desired state at `when` (rounded down to the minute), or None when the
     calendar has no row for that local date."""
     t = when.astimezone(UTC).replace(second=0, microsecond=0)
-    local = t.astimezone(tank_tz(params))
+    local = t.astimezone(tank_tz(params if params is not None else getattr(cal, "params", None)))
     row = cal.rows.get(local.date().isoformat())
     if row is None:
         return None
@@ -418,7 +420,7 @@ _BOOLS = ("full_dark", "any_sun", "any_moon", "white_on", "white_plus_on", "blue
 def day_events(cal: Calendar, cfg: dict, day: dt.date, params=None):
     """Every minute at which a boolean flips during one local day, as
     (local time, field, new value) in order. For reviewing a day's plan."""
-    tz = tank_tz(params)
+    tz = tank_tz(params if params is not None else getattr(cal, "params", None))
     start = dt.datetime.combine(day, dt.time(0), tzinfo=tz).astimezone(UTC)
     end = dt.datetime.combine(day + dt.timedelta(days=1), dt.time(0),
                               tzinfo=tz).astimezone(UTC)
