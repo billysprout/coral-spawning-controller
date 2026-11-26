@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tank Tracking</title>
+<style>
+:root {
+  --bg: #f6f7f8; --panel: #ffffff; --ink: #1c2126; --muted: #5d6873; --line: #dde2e7;
+  --accent: #0f6e8c; --accent-ink: #ffffff; --ok: #1f7a4d; --warn: #9a6200; --bad: #b3261e;
+  --soft: #eef3f6; --grid: #e8ecef;
+  --c-plan: #2a78d6; --c-raw: #9fb3c0; --c-ink: #eb6834; --c-probe: #1baf7a;
+  --c-band: rgba(235, 104, 52, .16); --c-pband: rgba(27, 175, 122, .14);
+  --crit: #d03b3b; --dev-pos: #e34948; --dev-neg: #2a78d6; --lux: #6b7680; --lamp-white: #eda100;
+  --sky-sun: rgba(237, 161, 0, .55); --sky-moon: rgba(42, 120, 214, .40); --sky-dark: #3a4148;
+  --night-wash: rgba(30, 41, 59, .05);
+  --c-sun: rgba(234, 179, 8, .22); --c-moon: rgba(59, 130, 246, .20); --c-dark: rgba(30, 41, 59, .13);
+  --c-season: rgba(16, 185, 129, .12); --c-watch: #059669; --c-today: #b3261e;
+  --c-photo: #b45309; --c-lit: rgba(234, 179, 8, .55); --c-litp: #92400e; --c-moonl: #3b82f6;
+  --c-safe: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111518; --panel: #1a2025; --ink: #e5e9ec; --muted: #9aa6b0; --line: #2c343b;
+    --accent: #4fb3d4; --accent-ink: #0b1215; --ok: #5cc28e; --warn: #e0a84a; --bad: #ef7d74;
+    --soft: #212a31; --grid: #242c33;
+    --c-plan: #3987e5; --c-raw: #4a5c69; --c-ink: #d95926; --c-probe: #199e70;
+    --c-band: rgba(217, 89, 38, .22); --c-pband: rgba(25, 158, 112, .18);
+    --crit: #d03b3b; --dev-pos: #e66767; --dev-neg: #3987e5; --lux: #9aa6b0; --lamp-white: #c98500;
+    --sky-sun: rgba(201, 133, 0, .75); --sky-moon: rgba(57, 135, 229, .55); --sky-dark: #0b0e10;
+    --night-wash: rgba(0, 0, 0, .16);
+    --c-sun: rgba(250, 204, 21, .16); --c-moon: rgba(96, 165, 250, .20); --c-dark: rgba(0, 0, 0, .35);
+    --c-season: rgba(52, 211, 153, .10); --c-watch: #34d399; --c-today: #ef7d74;
+    --c-photo: #f59e0b; --c-lit: rgba(250, 204, 21, .45); --c-litp: #fbbf24; --c-moonl: #60a5fa;
+    --c-safe: #ef7d74;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111518; --panel: #1a2025; --ink: #e5e9ec; --muted: #9aa6b0; --line: #2c343b;
+  --accent: #4fb3d4; --accent-ink: #0b1215; --ok: #5cc28e; --warn: #e0a84a; --bad: #ef7d74;
+  --soft: #212a31; --grid: #242c33;
+  --c-plan: #3987e5; --c-raw: #4a5c69; --c-ink: #d95926; --c-probe: #199e70;
+  --c-band: rgba(217, 89, 38, .22); --c-pband: rgba(25, 158, 112, .18);
+  --crit: #d03b3b; --dev-pos: #e66767; --dev-neg: #3987e5; --lux: #9aa6b0; --lamp-white: #c98500;
+  --sky-sun: rgba(201, 133, 0, .75); --sky-moon: rgba(57, 135, 229, .55); --sky-dark: #0b0e10;
+  --night-wash: rgba(0, 0, 0, .16);
+  --c-sun: rgba(250, 204, 21, .16); --c-moon: rgba(96, 165, 250, .20); --c-dark: rgba(0, 0, 0, .35);
+  --c-season: rgba(52, 211, 153, .10); --c-watch: #34d399; --c-today: #ef7d74;
+  --c-photo: #f59e0b; --c-lit: rgba(250, 204, 21, .45); --c-litp: #fbbf24; --c-moonl: #60a5fa;
+  --c-safe: #ef7d74;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 18px 16px 4px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; }
+.banner { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--soft);
+  border-left: 4px solid var(--warn); font-size: 13px; }
+main { max-width: 1200px; margin: 0 auto; padding: 4px 16px 60px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin: 12px 0; }
+.card h2 { font-size: 16px; margin: 0 0 8px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.card h2 .sp { flex: 1; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.stat { background: var(--soft); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.stat .k { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 20px; font-weight: 600; }
+.tbl.num td { font-variant-numeric: tabular-nums; }
+.chart svg:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.stat .d { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 13px; margin-top: 10px; }
+.kv > div:nth-child(odd) { color: var(--muted); }
+.kv > div { overflow-wrap: anywhere; min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); color: var(--ink); padding: 5px 12px;
+  font: inherit; font-size: 13px; cursor: pointer; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; }
+svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .axis { stroke: var(--line); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 6px 0 2px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 10px; margin-right: 5px;
+  vertical-align: -1px; background: var(--sw); border-radius: 2px; }
+.legend span.ln::before { height: 3px; vertical-align: 3px; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 9px; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+  min-width: 170px; max-width: 280px; z-index: 5; display: none; font-variant-numeric: tabular-nums; }
+.tip b { display: block; margin-bottom: 2px; }
+.tip .r { display: flex; justify-content: space-between; gap: 12px; }
+.tip .r span:first-child { color: var(--muted); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th, .tbl td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { color: var(--muted); font-weight: 600; }
+.scroll { overflow-x: auto; }
+.warn { color: var(--warn); } .bad { color: var(--bad); } .ok { color: var(--ok); } .muted { color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.err { color: var(--bad); font-size: 13px; }
+code { font-size: 12px; background: var(--soft); padding: 1px 4px; border-radius: 4px; }
+.health { display: flex; gap: 12px; align-items: flex-start; border-left: 5px solid var(--ok); }
+.health.warn { border-left-color: var(--warn); } .health.bad { border-left-color: var(--bad); }
+.health .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; background: var(--ok); }
+.health.warn .dot { background: var(--warn); } .health.bad .dot { background: var(--bad); }
+.health .hd { font-weight: 600; font-size: 15px; }
+.health ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+.health li { margin: 2px 0; }
+.health .hint { color: var(--muted); font-size: 12px; }
+.tbl tr.prob td { background: color-mix(in srgb, var(--bad) 9%, transparent); }
+.ev-h { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 14px 0 6px; }
+.ev-h h3 { font-size: 14px; margin: 0; } .ev-h .sp { flex: 1; }
+abbr { text-decoration: underline dotted; cursor: help; }
+.setupc { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; font-size: 13px; padding: 10px 16px; }
+.setupc .t { flex: 1; min-width: 220px; }
+.setupc .lbl { color: var(--muted); }
+a.setlink { color: var(--accent); border: 1px solid var(--accent); border-radius: 7px; padding: 5px 10px; text-decoration: none; white-space: nowrap; }
+a.setlink.go { background: var(--accent); color: var(--accent-ink); }
+/* --- the glance view: four tiles, then folds that open on demand --- */
+[hidden] { display: none !important; }
+header { display: flex; gap: 6px 14px; align-items: baseline; flex-wrap: wrap; }
+header .sp { flex: 1; }
+header .banner { flex-basis: 100%; }
+.now { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.tile .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.tile .v { font-size: 28px; font-weight: 650; line-height: 1.15; margin-top: 4px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile .d { color: var(--muted); font-size: 13px; margin-top: 3px; overflow-wrap: anywhere; }
+.tile.warn { border-color: var(--warn); } .tile.warn .v { color: var(--warn); }
+.tile.bad { border-color: var(--bad); } .tile.bad .v { color: var(--bad); }
+.tile.ok .v { color: var(--ok); }
+details.fold { padding: 0; }
+details.fold > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; gap: 4px 12px;
+  align-items: baseline; flex-wrap: wrap; border-radius: 10px; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "\25B8"; color: var(--muted); flex: none; width: 12px; }
+details.fold[open] > summary::before { content: "\25BE"; }
+details.fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+details.fold > summary h2 { margin: 0; font-size: 15px; display: inline; }
+details.fold > summary .sum { color: var(--muted); font-size: 13px; flex: 1; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+details.fold > .body { padding: 0 16px 14px; }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.bar .sp { flex: 1; }
+.layers { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 13px; align-items: baseline; }
+.layers .nm { font-weight: 600; }
+.pill { display: inline-block; min-width: 62px; text-align: center; font-size: 11px; font-weight: 700; padding: 1px 8px;
+  border-radius: 999px; border: 1px solid currentColor; letter-spacing: .03em; }
+.pill.go { color: var(--ok); } .pill.caution { color: var(--warn); } .pill.nogo { color: var(--bad); } .pill.off { color: var(--muted); }
+.health details { margin-top: 2px; font-size: 13px; } .health details summary { cursor: pointer; color: var(--muted); }
+footer { max-width: 1200px; margin: 0 auto; padding: 0 16px 40px; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) { .now { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .tile .v { font-size: 22px; }
+  details.fold > summary .sum { flex-basis: 100%; text-align: left; padding-left: 16px; } }
+@media (max-width: 640px) { .stat .v { font-size: 17px; } .tbl { font-size: 12px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tank</h1>
+  <span class="sp"></span>
+  <a class="setlink" id="setuplink" href="#" rel="noopener">Setup</a>
+  <div class="banner" id="sandbox" hidden>Sandbox copy: fake plugs and a dummy sensor feed, not the tank.</div>
+</header>
+<main>
+  <div class="card health" id="health" role="status" aria-live="polite"><span class="dot"></span><div><div class="hd">Checking…</div></div></div>
+  <div class="now" id="now" aria-label="The tank right now"></div>
+  <div class="card setupc" id="setupcard" aria-label="Setup" hidden></div>
+  <div class="err" id="sumerr"></div>
+
+  <details class="card fold" id="d-recent" open>
+    <summary><h2>Last 24 hours</h2></summary>
+    <div class="body">
+      <div class="note" id="recsum" style="margin:0 0 8px;font-size:13px;color:var(--ink)"></div>
+      <div class="legend" id="rleg"></div>
+      <div class="chart" id="recent"></div>
+      <div class="err" id="recerr"></div>
+    </div>
+  </details>
+
+  <details class="card fold" id="d-light">
+    <summary><h2>Light</h2><span class="sum" id="s-light"></span></summary>
+    <div class="body">
+      <div class="note" id="lightsum" style="margin:0 0 8px;font-size:13px;color:var(--ink)"></div>
+      <div class="legend" id="lleg"></div>
+      <div class="chart" id="light"></div>
+    </div>
+  </details>
+
+  <details class="card fold" id="d-problems">
+    <summary><h2>Problems</h2><span class="sum" id="s-problems"></span></summary>
+    <div class="body" id="problems"></div>
+  </details>
+
+  <details class="card fold" id="d-year">
+    <summary><h2>Cue year</h2></summary>
+    <div class="body">
+      <div class="chart" id="year"></div>
+      <div class="note" id="yearnote"></div>
+    </div>
+  </details>
+</main>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const NS = "http://www.w3.org/2000/svg";
+let SUM = null, YEAR = null, REC = null, TZ = "America/Los_Angeles";
+let yRange = "all", rDays = 1;
+let LINKS = { setup_url: null, setup_port: 8098 };
+function setupHref() { return LINKS.setup_url || `${location.protocol}//${location.hostname}:${LINKS.setup_port}/`; }
+
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function f1(v, n = 1) { return v == null || isNaN(v) ? "–" : Number(v).toFixed(n); }
+function cToF(c) { return c * 9 / 5 + 32; }
+function fToC(f) { return (f - 32) * 5 / 9; }
+/* Fahrenheit first (the owner works in °F); the data stays in °C underneath */
+function tf(c, n = 1) { return c == null || isNaN(c) ? "–" : `${f1(cToF(c), n)} °F`; }
+function tc(v) { return v == null ? "–" : `${tf(v)} <span class="muted">(${f1(v, 2)} °C)</span>`; }
+function dF(dc, n = 1) { return dc == null || isNaN(dc) ? "–" : `${dc > 0 ? "+" : ""}${f1(dc * 9 / 5, n)} °F`; }
+async function getJSON(url) {
+  const r = await fetch(url, { headers: { "Accept": "application/json" } });
+  const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) if (attrs[k] != null) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, s, anchor = "start", extra = {}) {
+  const t = el("text", { x, y, "text-anchor": anchor, ...extra }, parent); t.textContent = s; return t;
+}
+function fmtLocal(epoch, opts) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour12: false, ...opts }).format(new Date(epoch * 1000));
+}
+function localParts(epoch) {
+  const p = {}; for (const x of new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(epoch * 1000))) p[x.type] = x.value;
+  if (p.hour === "24") p.hour = "00";
+  return p;
+}
+function dayDiff(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 86400000); }
+function shortDate(iso) { const [y, m, d] = iso.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m - 1]} ${+d}`; }
+
+/* path from (x,y) pairs; null y breaks the line. maxGap (in x px) also breaks it */
+function linePath(xs, ys, maxGap = Infinity) {
+  let d = "", prevX = null;
+  for (let i = 0; i < xs.length; i++) {
+    const y = ys[i];
+    if (y == null || isNaN(y)) { prevX = null; continue; }
+    d += (prevX == null || xs[i] - prevX > maxGap ? "M" : "L") + xs[i].toFixed(1) + "," + y.toFixed(1);
+    prevX = xs[i];
+  }
+  return d;
+}
+function stepPath(xs, ys, w) {
+  let d = "", open = false;
+  for (let i = 0; i < xs.length; i++) {
+    const y = ys[i];
+    if (y == null) { open = false; continue; }
+    d += (open ? "L" : "M") + xs[i].toFixed(1) + "," + y.toFixed(1) + "L" + (xs[i] + w).toFixed(1) + "," + y.toFixed(1);
+    open = true;
+  }
+  return d;
+}
+function bandPath(xs, lo, hi) {
+  let d = "", seg = [];
+  const flush = () => {
+    if (seg.length) {
+      d += "M" + seg.map((i) => xs[i].toFixed(1) + "," + hi[i].toFixed(1)).join("L");
+      d += "L" + seg.slice().reverse().map((i) => xs[i].toFixed(1) + "," + lo[i].toFixed(1)).join("L") + "Z";
+    }
+    seg = [];
+  };
+  for (let i = 0; i < xs.length; i++) { if (lo[i] == null || hi[i] == null) flush(); else seg.push(i); }
+  flush();
+  return d;
+}
+/* runs of truthy values -> [startIdx, endIdx] */
+function runs(vals, test = (v) => !!v) {
+  const out = []; let s = null;
+  for (let i = 0; i <= vals.length; i++) {
+    const on = i < vals.length && test(vals[i]);
+    if (on && s == null) s = i;
+    if (!on && s != null) { out.push([s, i - 1]); s = null; }
+  }
+  return out;
+}
+function niceTicks(lo, hi, n = 5) {
+  const span = hi - lo || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) || mag * 10;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+function extent(arrs, pad = 0) {
+  let lo = Infinity, hi = -Infinity;
+  for (const a of arrs) for (const v of a) if (v != null && !isNaN(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  if (hi - lo < 1e-6) { lo -= 0.5; hi += 0.5; }
+  return [lo - pad, hi + pad];
+}
+
+/* tooltip on a chart: rows(i) -> html; index(x) -> i */
+function attachHover(box, svg, M, H, index, html, xAt) {
+  let tip = box.querySelector(".tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "tip"; box.appendChild(tip); }
+  const cursor = el("line", { y1: M.t, y2: H - M.b, stroke: "var(--muted)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const overlay = el("rect", { x: M.l, y: M.t, width: Math.max(0, svg.__w - M.l - M.r), height: H - M.t - M.b, fill: "transparent" }, svg);
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const i = index(cx);
+    if (i == null) return;
+    const x = xAt(i);
+    cursor.setAttribute("x1", x); cursor.setAttribute("x2", x); cursor.setAttribute("visibility", "visible");
+    tip.innerHTML = html(i); tip.style.display = "block";
+    const bw = box.clientWidth, tw = tip.offsetWidth;
+    tip.style.left = Math.min(Math.max(0, x + 12 > bw - tw ? x - tw - 12 : x + 12), Math.max(0, bw - tw)) + "px";
+    tip.style.top = "8px";
+  };
+  overlay.addEventListener("mousemove", move);
+  overlay.addEventListener("touchstart", move, { passive: true });
+  overlay.addEventListener("touchmove", move, { passive: true });
+  overlay.addEventListener("mouseleave", () => { tip.style.display = "none"; cursor.setAttribute("visibility", "hidden"); });
+}
+function row(k, v) { return `<div class="r"><span>${k}</span><span>${v}</span></div>`; }
+
+/* ------------------------------------------------------------------ summary */
+/* The page shows what is wrong and three numbers. Everything that is fine stays quiet. */
+function renderSummary(s) {
+  SUM = s; TZ = s.tz || TZ;
+  $("#setuplink").href = setupHref();
+  $("#sandbox").hidden = !s.sandbox;
+  renderSetupCard(s);
+  renderNow(s);
+  renderProblems();
+}
+
+/* ------------------------------------------------------- the glance tiles */
+const LAMP_NAME = { white: "white", white_plus: "white+", blue: "blue", moon: "moon" };
+function tile(k, v, d, cls) { return `<div class="tile${cls ? " " + cls : ""}"><div class="k">${esc(k)}</div><div class="v">${v}</div><div class="d">${d}</div></div>`; }
+function lifeView(s) {
+  /* one word for the life-support state, from the lifeguard's own status */
+  const L = s.life;
+  if (!L) return { word: "Not running", cls: "warn", sub: "the lifeguard has not run here", go: 0, all: 0 };
+  const ls = (L.layers || []).filter((x) => x.state !== "off");
+  const go = ls.filter((x) => x.state === "go").length;
+  if (L.age_s != null && L.age_s > 300) return { word: "Silent", cls: "bad", sub: `lifeguard last seen ${Math.round(L.age_s / 60)} min ago`, go, all: ls.length };
+  const sm = L.safe_mode || {};
+  if (sm.latched) return { word: "Safe mode", cls: "bad", sub: "lights held off: " + ((sm.latch || {}).reason || "tripped").replace(/_/g, " "), go, all: ls.length };
+  const c = L.class || "NOMINAL";
+  const word = { NOMINAL: "Go", ADVISORY: "Go", CAUTION: "Caution", WARNING: "Warning", EMERGENCY: "Emergency" }[c] || c;
+  const cls = { NOMINAL: "ok", ADVISORY: "ok", CAUTION: "warn", WARNING: "bad", EMERGENCY: "bad" }[c] || "";
+  return { word, cls, sub: `${go} of ${ls.length} safety layers ready`, go, all: ls.length };
+}
+function renderNow(s) {
+  const st = s.status, p = s.plan_now, nw = s.next_watch, out = [];
+  /* water: one number; the target and the thermometer count appear only when something is off */
+  if (st && st.temp_c != null) {
+    const off = st.temp_error_c, offF = off == null ? null : Math.abs(off) * 9 / 5;
+    const red = st.redundancy, n = red ? (red.healthy || []).length : null, m = red ? (red.configured || []).length : null;
+    const bits = [];
+    if (offF != null && offF >= 1) bits.push(`${dF(off)} vs plan ${tf(p && p.temp_hourly_c)}`);
+    if (m && n < m) bits.push(`${n} of ${m} thermometers`);
+    out.push(tile("Water", tf(st.temp_c), esc(bits.join(" · ") || "on plan"), (offF != null && offF >= 2) || (m && n < m) ? "warn" : ""));
+  } else out.push(tile("Water", "–", st ? "no temperature reading" : "no controller status", "bad"));
+  /* lights: what is on; the plan only when it disagrees */
+  if (st) {
+    const lamps = Object.values(st.plugs || {}).filter((v) => LAMP_NAME[v.channel]);
+    const on = [...new Set(lamps.filter((v) => v.on).map((v) => LAMP_NAME[v.channel]))];
+    const want = p ? ["white", "white_plus", "blue", "moon"].filter((k) => p[k + "_on"]).map((k) => LAMP_NAME[k]) : null;
+    const same = want ? want.length === on.length && want.every((x) => on.includes(x)) : null;
+    const down = lamps.filter((v) => v.ok === false).length;
+    const d = st.safe_mode ? "safe mode holds them off" : down ? `${down} not answering` : want == null ? "no plan for today"
+      : same ? "as planned" : `plan: ${want.length ? want.join(" + ") : "off"}`;
+    out.push(tile("Lights", on.length ? esc(on.join(" + ").replace(/^./, (c) => c.toUpperCase())) : "Off", esc(d),
+      down || st.safe_mode ? "bad" : same === false ? "warn" : ""));
+  } else out.push(tile("Lights", "–", "no controller status", "bad"));
+  /* next watch night */
+  out.push(tile("Next watch night", nw ? (nw.days === 0 ? "Tonight" : `${nw.days} d`) : "None", "", nw && nw.days === 0 ? "ok" : ""));
+  $("#now").innerHTML = out.join("");
+}
+
+/* small "Setup" line: shown only when the controller has no calendar to follow. A calendar made
+   by script (no setup.json pin) is fine: the controller uses the newest one it finds. */
+function renderSetupCard(s) {
+  const none = !s.calendar, href = esc(setupHref());
+  $("#setupcard").hidden = !none;      /* with a calendar, the header's Setup link is enough */
+  if (none) {
+    $("#setupcard").innerHTML = `<span class="t"><b>No calendar yet.</b> <span class="muted">The controller has nothing to follow. Use the setup page to choose a reef, a target and a start date.</span></span>
+      <a class="setlink go" href="${href}" rel="noopener">Open the setup page</a>`;
+  }
+}
+
+/* ---------------------------------------------------------------- problems */
+/* Only what is not fine: lifeguard conditions, safety layers that are not GO, problem events. */
+const VERDICT = {
+  confirmed: ["ok", "the sensor evidence agreed with the command"],
+  failed: ["bad", "the sensor evidence disagreed: the lamp did not do what was commanded"],
+  plug_only: ["muted", "no sensor evidence in the window; only the plug's own read-back backs the command"],
+  plug_changed: ["warn", "the plug stopped matching the command before it could be judged"],
+  superseded: ["muted", "a newer command to the same plug replaced this one"],
+};
+const PILL = { go: "GO", caution: "CAUTION", nogo: "NO-GO", off: "OFF" };
+function isProblem(e) {
+  return (e.kind === "cutoff" && (e.reason || e.event) !== "cooled") || e.verdict === "failed" || e.verdict === "plug_changed" || !!e.error ||
+    (e.executed != null && e.executed && e.verified === false) ||
+    ["override_detected", "deadman_fired", "dark_protect"].includes(e.kind);
+}
+let problemsAutoOpened = false;
+function renderProblems() {
+  const box = $("#problems"); if (!SUM) return;
+  const L = SUM.life, parts = [];
+  let n = 0;
+  if (L) {
+    const conds = (L.conditions || []).filter((c) => c.class !== "ADVISORY");
+    const layers = (L.layers || []).filter((x) => x.state !== "go" && x.state !== "off");
+    n += conds.length + layers.length;
+    if (conds.length) parts.push(`<ul style="margin:0 0 10px;padding-left:18px;font-size:13px">` + conds.map((c) =>
+      `<li class="${c.class === "CAUTION" ? "warn" : "bad"}"><b>${esc(c.class)}</b> ${esc(c.message)}${c.acked ? ' <span class="muted">(acknowledged)</span>' : ""}</li>`).join("") + "</ul>");
+    if (layers.length) parts.push(`<div class="layers" style="margin-bottom:10px">` + layers.map((x) =>
+      `<div><span class="pill ${esc(x.state)}">${PILL[x.state] || esc(x.state)}</span></div><div><span class="nm">${esc(x.name)}</span> <span class="muted">${esc(x.detail)}</span></div>`).join("") + `</div>`);
+  }
+  const evs = REC ? (REC.events || []).filter(isProblem).reverse().slice(0, 20) : [];
+  n += evs.length;
+  if (evs.length) {
+    const roles = REC.roles || {};
+    parts.push(`<div class="scroll"><table class="tbl"><tr><th>Time</th><th>Plug</th><th>What</th><th>Result</th></tr>` + evs.map((e) => {
+      const what = e.reason || e.event || e.kind || "";
+      const want = e.desired_on == null ? "" : e.desired_on ? " → on" : " → off";
+      let res = "";
+      if (e.verdict) { const [c, why] = VERDICT[e.verdict] || ["", ""]; res = `<abbr class="${c}" title="${esc(why)}">${esc(e.verdict.replace("_", " "))}</abbr>`; }
+      else if (e.kind === "cutoff" && e.probe_c != null) res = `probe ${tf(e.probe_c, 2)}, cutoff ${tf(e.cutoff_c, 1)}`;
+      else if (e.error) res = `<span class="bad">${esc(e.error)}</span>`;
+      else if (e.executed != null) res = e.verified ? '<span class="ok">verified</span>' : e.executed ? '<span class="warn">sent, not read back</span>' : "not sent";
+      const role = roles[e.plug] ? ` <span class="muted">${esc(roles[e.plug])}</span>` : "";
+      return `<tr class="prob"><td>${fmtLocal(e.t, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td><td>${esc(e.plug || "")}${role}</td><td>${esc(what + want)}</td><td>${res}</td></tr>`;
+    }).join("") + `</table></div><div class="note">Problem events from the last 24 hours, newest first.</div>`);
+  }
+  box.innerHTML = parts.join("") || `<div class="note">Nothing to report.</div>`;
+  $("#s-problems").textContent = n ? String(n) : "";
+  if (n && !problemsAutoOpened) { problemsAutoOpened = true; $("#d-problems").open = true; }
+}
+
+/* --------------------------------------------------------------------- year */
+/* One panel: the planned target, the tank's daily mean, watch nights, a today marker. */
+function renderYear() {
+  const box = $("#year"); box.innerHTML = "";
+  if (!YEAR || !$("#d-year").open) return;
+  const R = YEAR.rows, n = R.date.length;
+  const ti = R.date.indexOf(YEAR.today);
+  const W = Math.max(260, box.clientWidth), M = { l: 44, r: 12, t: 8, b: 22 }, hT = 220, H = M.t + hT + M.b;
+  const svg = el("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "cue year: target and actual daily temperature" }, box);
+  svg.__w = W;
+  const iw = W - M.l - M.r, dx = iw / n;
+  const X = (k) => M.l + (k + 0.5) * dx;
+  const xs = R.date.map((_, k) => X(k));
+  const ink = R.ink;
+  let [lo, hi] = extent([R.target_c, ink.map((v) => v && v[0])], 0.3);
+  const Y = (v) => M.t + hT - (v - lo) / (hi - lo) * hT;
+  for (const tF of niceTicks(cToF(lo), cToF(hi), 5)) { const t = fToC(tF); el("line", { x1: M.l, x2: W - M.r, y1: Y(t), y2: Y(t), class: "grid" }, svg); txt(svg, M.l - 6, Y(t) + 4, tF.toFixed(0), "end"); }
+  txt(svg, M.l, M.t + 10, "°F", "start", { dx: 4 });
+  R.watch.forEach((w, k) => { if (w) el("line", { x1: xs[k], x2: xs[k], y1: M.t, y2: M.t + hT, stroke: "var(--c-watch)", "stroke-width": Math.max(1, Math.min(3, dx * 0.6)), opacity: 0.55 }, svg); });
+  el("path", { d: linePath(xs, R.target_c.map((v) => v == null ? null : Y(v))), fill: "none", stroke: "var(--c-plan)", "stroke-width": 2 }, svg);
+  el("path", { d: linePath(xs, ink.map((v) => v && Y(v[0])), dx * 1.5), fill: "none", stroke: "var(--c-ink)", "stroke-width": 2 }, svg);
+  for (let k = 0; k < n; k++) {
+    if (ink[k] && (k === 0 || !ink[k - 1]) && (k === n - 1 || !ink[k + 1])) el("circle", { cx: xs[k], cy: Y(ink[k][0]), r: 2.5, fill: "var(--c-ink)" }, svg);
+  }
+  R.date.forEach((d, k) => {
+    if (+d.slice(8, 10) === 1) {
+      el("line", { x1: xs[k], x2: xs[k], y1: H - M.b, y2: H - M.b + 4, class: "axis" }, svg);
+      txt(svg, xs[k], H - 6, shortDate(d).split(" ")[0] + (d.slice(5, 7) === "01" ? " " + d.slice(0, 4) : ""), "middle");
+    }
+  });
+  el("line", { x1: M.l, x2: W - M.r, y1: H - M.b, y2: H - M.b, class: "axis" }, svg);
+  if (ti >= 0) {
+    el("line", { x1: xs[ti], x2: xs[ti], y1: M.t, y2: H - M.b, stroke: "var(--c-today)", "stroke-width": 1.5 }, svg);
+    txt(svg, xs[ti], M.t + 10, "today", xs[ti] > W - 80 ? "end" : "start", { dx: xs[ti] > W - 80 ? -4 : 4, style: "fill:var(--c-today)" });
+  }
+  attachHover(box, svg, M, H, (cx) => { const k = Math.floor((cx - M.l) / dx); return k >= 0 && k < n ? k : null; },
+    (k) => `<b>${R.date[k]}${R.date[k] === YEAR.today ? " (today)" : ""}</b>` + row("target", tf(R.target_c[k])) +
+      row("tank mean", ink[k] ? tf(ink[k][0]) : "–") + (R.watch[k] ? row("watch", "watch night") : ""), (k) => xs[k]);
+  const have = ink.filter((v) => v).length;
+  $("#yearnote").textContent = `Blue: planned target. Orange: the tank's daily mean (${have} of ${n} days have readings). Green ticks: watch nights.`;
+}
+
+/* ------------------------------------------------------------------- recent */
+/* The last 24 hours: plan against the tank. The probe is drawn only when it disagrees with
+   the Inkbird by more than the tolerance; lux, deviation and lamp lanes are gone. */
+const TOL_F = 1.0;              // "on plan" = Inkbird within ±1 °F of the plan
+
+function onPlan() {
+  const C = REC.cols; let n = 0, w = 0;
+  for (let i = 0; i < C.t.length; i++) if (C.ink_c[i] != null && C.plan_c[i] != null) { n++; if (Math.abs(C.ink_c[i] - C.plan_c[i]) * 9 / 5 <= TOL_F) w++; }
+  return n ? { n, within: w / n } : null;
+}
+function renderRecent() {
+  const op = REC && onPlan();
+  $("#recsum").textContent = !REC ? "" : op ? `On plan ${Math.round(op.within * 100)}% of the last 24 hours (within ±${TOL_F} °F).` : "No Inkbird readings in the last 24 hours.";
+  renderProblems(); renderHealth();
+  const box = $("#recent"); box.innerHTML = "";
+  if (!REC || !$("#d-recent").open) return;
+  const C = REC.cols, n = C.t.length, bs = REC.bucket_s;
+  const W = Math.max(260, box.clientWidth), narrow = W < 560;
+  const M = { l: 44, r: narrow ? 10 : 70, t: 4, b: 22 };
+  const hT = 220, top1 = M.t + 16, H = top1 + hT + M.b;
+  const svg = el("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", tabindex: 0,
+    "aria-label": "Plan versus actual tank temperature over the last 24 hours; use the arrow keys to step through readings" }, box);
+  svg.__w = W;
+  const t0 = C.t[0], t1 = C.t[n - 1] + bs, iw = W - M.l - M.r;
+  const X = (t) => M.l + (t - t0) / (t1 - t0) * iw, bw = bs / (t1 - t0) * iw;
+  const xs = C.t.map(X), mid = xs.map((x) => x + bw / 2);
+  const F = (c) => (c == null ? null : cToF(c));
+
+  const span = (t1 - t0) / 3600, stepH = narrow ? 6 : span <= 30 ? 3 : 6;
+  for (let t = Math.ceil(t0 / 3600) * 3600; t <= t1; t += 3600) {
+    const p = localParts(t), h = +p.hour;
+    if (h % stepH) continue;
+    const x = X(t);
+    el("line", { x1: x, x2: x, y1: top1, y2: H - M.b, class: "grid" }, svg);
+    txt(svg, x, H - 6, h === 0 ? shortDate(`${p.year}-${p.month}-${p.day}`) : `${p.hour}:00`, "middle", h === 0 ? { style: "font-weight:600;fill:var(--ink)" } : {});
+  }
+  /* night shading: day and night stay readable without a sky strip */
+  for (const [s, e] of runs(C.full_dark)) el("rect", { x: xs[s], y: top1, width: xs[e] - xs[s] + bw, height: hT, fill: "var(--night-wash)" }, svg);
+
+  const st = SUM && SUM.status, cutoff = st ? st.cutoff_c : null;
+  const plan = C.plan_c.map(F), ink = C.ink_c.map(F), probe = C.probe_c.map(F);
+  const showProbe = probe.some((v, i) => v != null && ink[i] != null && Math.abs(v - ink[i]) > TOL_F);
+  let [lo, hi] = extent([plan.map((v) => v == null ? null : v - TOL_F), plan.map((v) => v == null ? null : v + TOL_F), ink, showProbe ? probe : []], 0.3);
+  const cutF = F(cutoff);
+  if (cutF != null && cutF < hi + 1.5) hi = Math.max(hi, cutF + 0.3);
+  const Y1 = (v) => top1 + hT - (v - lo) / (hi - lo) * hT;
+  txt(svg, M.l, top1 - 5, "°F", "start", { style: "fill:var(--ink);font-weight:600;font-size:11.5px" });
+  for (const t of niceTicks(lo, hi, 5)) { el("line", { x1: M.l, x2: W - M.r, y1: Y1(t), y2: Y1(t), class: "grid" }, svg); txt(svg, M.l - 6, Y1(t) + 4, Number.isInteger(t) ? String(t) : t.toFixed(1), "end"); }
+  el("path", { d: bandPath(mid, plan.map((v) => v == null ? null : Y1(v - TOL_F)), plan.map((v) => v == null ? null : Y1(v + TOL_F))), fill: "var(--c-plan)", opacity: 0.12 }, svg);
+  if (cutF != null && cutF >= lo && cutF <= hi) {
+    el("line", { x1: M.l, x2: W - M.r, y1: Y1(cutF), y2: Y1(cutF), stroke: "var(--crit)", "stroke-width": 1 }, svg);
+    txt(svg, W - M.r - 4, Y1(cutF) + 13, `cutoff ${f1(cutF, 1)} °F`, "end", { style: "fill:var(--ink);font-size:11px" });
+  }
+  const line = (vals, color, gapMul, extra = {}) => el("path", { d: linePath(mid, vals.map((v) => v == null ? null : Y1(v)), bw * gapMul), fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", ...extra }, svg);
+  el("path", { d: stepPath(xs, plan.map((v) => v == null ? null : Y1(v)), bw), fill: "none", stroke: "var(--c-plan)", "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+  if (showProbe) line(probe, "var(--c-probe)", 3.5, { opacity: 0.9 });
+  line(ink, "var(--c-ink)", 4.5);
+  const nearest = (t) => Math.max(0, Math.min(n - 1, Math.round((t - t0) / bs)));
+  for (const e of REC.events || []) {
+    if (e.kind !== "cutoff" || (e.reason || e.event) === "cooled") continue;
+    const x = X(e.t); if (x < M.l || x > W - M.r) continue;
+    const k = nearest(e.t), v = ink[k] != null ? ink[k] : cutF;
+    if (v == null) continue;
+    const y = Y1(v);
+    el("path", { d: `M${x},${y - 6}L${x + 6},${y}L${x},${y + 6}L${x - 6},${y}Z`, fill: "var(--crit)", stroke: "var(--panel)", "stroke-width": 2 }, svg);
+  }
+  /* end labels with the latest value */
+  if (!narrow) {
+    const last = (vals) => { for (let i = n - 1; i >= 0; i--) if (vals[i] != null) return [i, vals[i]]; return null; };
+    const ends = [["Plan", plan, "var(--c-plan)"], [REC.ink_label || "Inkbird", ink, "var(--c-ink)"]].concat(showProbe ? [["Probe", probe, "var(--c-probe)"]] : [])
+      .map(([name, vals, c]) => { const l = last(vals); return l && { name, c, i: l[0], v: l[1], y: Y1(l[1]) }; }).filter(Boolean).sort((a, b) => a.y - b.y);
+    for (let j = 1; j < ends.length; j++) ends[j].ly = Math.max(ends[j].y, (ends[j - 1].ly ?? ends[j - 1].y) + 14);
+    if (ends.length) ends[0].ly = ends[0].y;
+    const over = ends.length ? ends[ends.length - 1].ly - (top1 + hT - 4) : 0;
+    if (over > 0) for (const e of ends) e.ly -= over;
+    const lx = W - M.r + 10;
+    for (const e of ends) {
+      const ex = mid[e.i];
+      el("circle", { cx: ex, cy: e.y, r: 4, fill: e.c, stroke: "var(--panel)", "stroke-width": 2 }, svg);
+      if (Math.abs(e.ly - e.y) > 2) el("path", { d: `M${ex + 5},${e.y}L${lx - 4},${e.ly}`, stroke: "var(--muted)", "stroke-width": 1, fill: "none" }, svg);
+      txt(svg, lx, e.ly + 4, `${f1(e.v, 1)}`, "start", { style: "fill:var(--ink);font-weight:600;font-size:12px" });
+    }
+  }
+  $("#rleg").innerHTML = `<span class="ln" style="--sw:var(--c-plan)">plan</span><span class="ln" style="--sw:var(--c-ink)">${esc(REC.ink_label || "Inkbird")}</span>` +
+    (showProbe ? `<span class="ln" style="--sw:var(--c-probe)">probe (disagrees)</span>` : "") +
+    `<span style="--sw:color-mix(in srgb, var(--c-plan) 22%, transparent)">±${TOL_F} °F of plan</span>`;
+
+  /* hover / keyboard: one tooltip with the three numbers that matter */
+  let tip = box.querySelector(".tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "tip"; box.appendChild(tip); }
+  const cursor = el("line", { y1: top1, y2: H - M.b, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden" }, svg);
+  const dots = [["var(--c-plan)", plan], ["var(--c-ink)", ink]].map(([c, vals]) => [el("circle", { r: 4, fill: c, stroke: "var(--panel)", "stroke-width": 2, visibility: "hidden" }, svg), vals]);
+  const overlay = el("rect", { x: M.l, y: top1, width: iw, height: hT, fill: "transparent" }, svg);
+  const vr = (v, name) => `<div class="r"><span>${name}</span><span><b style="display:inline">${v}</b></span></div>`;
+  let cur = null;
+  const show = (i) => {
+    if (i == null) return; cur = i;
+    const x = mid[i];
+    cursor.setAttribute("x1", x); cursor.setAttribute("x2", x); cursor.setAttribute("visibility", "visible");
+    for (const [d, vals] of dots) { if (vals[i] == null) d.setAttribute("visibility", "hidden"); else { d.setAttribute("cx", x); d.setAttribute("cy", Y1(vals[i])); d.setAttribute("visibility", "visible"); } }
+    const dv = ink[i] == null || plan[i] == null ? null : ink[i] - plan[i];
+    tip.innerHTML = `<b>${fmtLocal(C.t[i], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</b>` +
+      vr(ink[i] == null ? "–" : f1(ink[i], 1) + " °F", esc(REC.ink_label || "Inkbird")) +
+      vr(plan[i] == null ? "–" : f1(plan[i], 1) + " °F", "Plan") +
+      vr(dv == null ? "–" : `${dv > 0 ? "+" : dv < 0 ? "−" : "±"}${f1(Math.abs(dv), 1)} °F`, "vs plan");
+    tip.style.display = "block";
+    const bwid = box.clientWidth, tw = tip.offsetWidth;
+    tip.style.left = Math.min(Math.max(0, x + 14 > bwid - tw ? x - tw - 14 : x + 14), Math.max(0, bwid - tw)) + "px";
+    tip.style.top = (top1 + 4) + "px";
+  };
+  const hide = () => { tip.style.display = "none"; cursor.setAttribute("visibility", "hidden"); for (const [d] of dots) d.setAttribute("visibility", "hidden"); };
+  const idxAt = (ev) => { const r = svg.getBoundingClientRect(); const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left; const i = Math.floor((cx - M.l) / bw); return i >= 0 && i < n ? i : null; };
+  overlay.addEventListener("mousemove", (ev) => show(idxAt(ev)));
+  overlay.addEventListener("touchstart", (ev) => show(idxAt(ev)), { passive: true });
+  overlay.addEventListener("touchmove", (ev) => show(idxAt(ev)), { passive: true });
+  overlay.addEventListener("mouseleave", hide);
+  svg.addEventListener("focus", () => show(cur == null ? n - 1 : cur));
+  svg.addEventListener("blur", hide);
+  svg.addEventListener("keydown", (ev) => {
+    const step = ev.shiftKey ? 12 : 1;
+    if (ev.key === "ArrowLeft") { show(Math.max(0, (cur ?? n - 1) - step)); ev.preventDefault(); }
+    else if (ev.key === "ArrowRight") { show(Math.min(n - 1, (cur ?? n - 1) + step)); ev.preventDefault(); }
+    else if (ev.key === "Escape") hide();
+  });
+}
+
+/* ------------------------------------------------------------------- light */
+/* Lux at the sensor on a log scale, then one lane per lamp: what the lamp did (darker = brighter)
+   against what the plan asked (thin bar under the lane). A five-minute bucket is "off plan" when
+   any lamp's level is more than LAMP_TOL from the planned 0 or 1; those buckets get a red outline. */
+const LAMPS = [["white", "white", "#8a96a3"], ["white_plus", "white+", "#e0a030"], ["blue", "blue", "#3987e5"], ["moon", "moon", "#9b7fe0"]];
+const LAMP_TOL = 0.25;
+function lightMiss(C) {
+  let n = 0, off = 0;
+  for (let i = 0; i < C.t.length; i++) {
+    let seen = false, bad = false;
+    for (const [k] of LAMPS) {
+      const p = C["plan_" + k][i], l = C["lamp_" + k][i];
+      if (p == null || l == null) continue;
+      seen = true; if (Math.abs(p - l) > LAMP_TOL) bad = true;
+    }
+    if (seen) { n++; if (bad) off++; }
+  }
+  return { n, off };
+}
+function renderLight() {
+  const C = REC && REC.cols, bs = REC ? REC.bucket_s : 300, lm = C && lightMiss(C);
+  const offMin = lm ? Math.round(lm.off * bs / 60) : 0;
+  const dur = offMin >= 90 ? `${f1(offMin / 60, 1)} h` : `${offMin} min`;
+  $("#s-light").textContent = !lm || !lm.n ? "" : lm.off ? `${dur} off plan` : "as planned";
+  $("#lightsum").textContent = !lm ? "" : !lm.n ? "No lamp readings in the last 24 hours."
+    : lm.off ? `Lamps differed from the plan for ${dur} of the last 24 hours (red outlines).` : "Lamps matched the plan for the last 24 hours.";
+  const box = $("#light"); box.innerHTML = "";
+  if (!REC || !$("#d-light").open) return;
+  const n = C.t.length;
+  const W = Math.max(260, box.clientWidth), M = { l: 44, r: 12, t: 4, b: 22 };
+  const top1 = M.t + 16, hL = 110, laneH = 12, laneGap = 8, lanes0 = top1 + hL + 16;
+  const H = lanes0 + LAMPS.length * (laneH + laneGap) - laneGap + M.b;
+  const svg = el("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": "Light sensor reading and each lamp against its plan over the last 24 hours" }, box);
+  svg.__w = W;
+  const t0 = C.t[0], t1 = C.t[n - 1] + bs, iw = W - M.l - M.r;
+  const X = (t) => M.l + (t - t0) / (t1 - t0) * iw, bw = bs / (t1 - t0) * iw;
+  const xs = C.t.map(X), mid = xs.map((x) => x + bw / 2);
+
+  const stepH = W < 560 ? 6 : 3;
+  for (let t = Math.ceil(t0 / 3600) * 3600; t <= t1; t += 3600) {
+    const p = localParts(t), h = +p.hour;
+    if (h % stepH) continue;
+    const x = X(t);
+    el("line", { x1: x, x2: x, y1: top1, y2: H - M.b, class: "grid" }, svg);
+    txt(svg, x, H - 6, h === 0 ? shortDate(`${p.year}-${p.month}-${p.day}`) : `${p.hour}:00`, "middle", h === 0 ? { style: "font-weight:600;fill:var(--ink)" } : {});
+  }
+  for (const [s, e] of runs(C.full_dark)) el("rect", { x: xs[s], y: top1, width: xs[e] - xs[s] + bw, height: H - M.b - top1, fill: "var(--night-wash)" }, svg);
+
+  /* lux, log scale: the sensor reads 0.06 in the dark and over 1000 in the sun */
+  const FLOOR = 0.05, loE = Math.log10(FLOOR);
+  const seen = C.lux.filter((v) => v != null);
+  const hiE = Math.max(2, Math.ceil(Math.log10(Math.max(1, ...seen))));
+  const Y = (v) => top1 + hL - (Math.log10(Math.max(v, FLOOR)) - loE) / (hiE - loE) * hL;
+  txt(svg, M.l, top1 - 5, "lux (log scale)", "start", { style: "fill:var(--ink);font-weight:600;font-size:11.5px" });
+  for (let e = -1; e <= hiE; e++) {
+    const v = Math.pow(10, e);
+    el("line", { x1: M.l, x2: W - M.r, y1: Y(v), y2: Y(v), class: "grid" }, svg);
+    txt(svg, M.l - 6, Y(v) + 4, e < 0 ? "0.1" : String(v), "end");
+  }
+  el("path", { d: linePath(mid, C.lux.map((v) => v == null ? null : Y(v)), bw * 4.5), fill: "none", stroke: "var(--lux)", "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+
+  /* lamp lanes */
+  LAMPS.forEach(([k, name, color], j) => {
+    const y = lanes0 + j * (laneH + laneGap);
+    el("rect", { x: M.l, y, width: iw, height: laneH, rx: 2, fill: "var(--soft)" }, svg);
+    txt(svg, M.l - 6, y + laneH - 2, name, "end", { style: `fill:${color};font-weight:600;font-size:11px` });
+    for (let i = 0; i < n; i++) {
+      const l = C["lamp_" + k][i], p = C["plan_" + k][i];
+      if (l != null && l > 0.02) el("rect", { x: xs[i], y, width: bw + 0.5, height: laneH, fill: color, opacity: 0.3 + 0.7 * Math.min(1, l) }, svg);
+      if (p != null && p > 0.5) el("rect", { x: xs[i], y: y + laneH + 1, width: bw + 0.5, height: 2, fill: "var(--ink)", opacity: 0.55 }, svg);
+      if (l != null && p != null && Math.abs(p - l) > LAMP_TOL) el("rect", { x: xs[i], y: y - 1, width: Math.max(bw, 2), height: laneH + 2, fill: "none", stroke: "var(--crit)", "stroke-width": 1.5 }, svg);
+    }
+  });
+  $("#lleg").innerHTML = `<span class="ln" style="--sw:var(--lux)">lux</span><span style="--sw:#3987e5">lamp on (darker = brighter)</span>` +
+    `<span style="--sw:var(--ink)">plan: on</span><span style="--sw:var(--crit)">differs from plan</span>`;
+
+  const pct = (l) => l == null ? "–" : Math.round(l * 100) + "%";
+  attachHover(box, svg, { l: M.l, r: M.r, t: top1, b: M.b }, H, (cx) => { const i = Math.floor((cx - M.l) / bw); return i >= 0 && i < n ? i : null; },
+    (i) => `<b>${fmtLocal(C.t[i], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</b>` +
+      row("lux", C.lux[i] == null ? "–" : f1(C.lux[i], C.lux[i] < 10 ? 2 : 0)) +
+      LAMPS.map(([k, name]) => {
+        const l = C["lamp_" + k][i], p = C["plan_" + k][i], bad = l != null && p != null && Math.abs(p - l) > LAMP_TOL;
+        return row(name, pct(l) + (bad ? ` <span style="color:var(--crit)">plan ${p > 0.5 ? "on" : "off"}</span>` : ""));
+      }).join(""), (i) => mid[i]);
+}
+
+/* ------------------------------------------------------------------ health */
+/* One card at the top: all clear, or what needs attention, worst first. Life support,
+   the calendar running out and a missing lifeguard all report here, not in tiles. */
+function renderHealth() {
+  const box = $("#health"); if (!SUM) return;
+  const bad = [], warn = [];
+  const st = SUM.status, cal = SUM.calendar || {}, roles = (REC && REC.roles) || {};
+  const roleOf = (p) => roles[p] || (st && st.plugs && st.plugs[p] && st.plugs[p].role) || "";
+  const nm = (p) => roleOf(p) ? `${p} (${roleOf(p)})` : p;
+  if (!st) bad.push("No controller status (tank_status.json missing): the controller may not be running.");
+  else {
+    if (st.age_s != null && st.age_s > 300) bad.push(`Controller status is ${Math.round(st.age_s / 60)} min old: the loop may be stuck.`);
+    for (const [n, v] of Object.entries(st.plugs || {})) if (v.ok === false) bad.push(`Plug ${nm(n)} is not answering.`);
+    if (st.tripped && st.tripped.length) bad.push(`Over-temperature cutoff tripped: ${st.tripped.map(nm).join(", ")} held off (cutoff ${tf(st.cutoff_c)}).`);
+    if (st.cutoff_c != null && !st.cooling_armed) warn.push("Over-temperature cutoff is not armed.");
+    if (st.temp_error_c != null && Math.abs(st.temp_error_c) * 9 / 5 >= 2) warn.push(`Tank is ${dF(st.temp_error_c)} off the plan.`);
+    for (const f of st.findings || []) {
+      if (f.level === "alert") bad.push(f.message); else if (f.level === "warn") warn.push(f.message);
+    }
+  }
+  const L = SUM.life;
+  if (!L) warn.push("The lifeguard (independent watchdog) is not running here.");
+  else if (L.age_s != null && L.age_s > 300) bad.push(`The lifeguard (independent watchdog) has been silent for ${Math.round(L.age_s / 60)} min.`);
+  else {
+    const sm = L.safe_mode || {};
+    if (sm.latched && !(st && st.safe_mode)) bad.push(`Safe mode: lights held off (${((sm.latch || {}).reason || "tripped").replace(/_/g, " ")}).`);
+    for (const c of L.conditions || []) {
+      if (c.key === "safe_mode" && st && st.safe_mode) continue;      /* the controller already says it */
+      if (c.class === "EMERGENCY" || c.class === "WARNING") bad.push(`Lifeguard: ${c.message}`);
+      else if (c.class === "CAUTION" && !c.acked) warn.push(`Lifeguard: ${c.message}`);
+    }
+  }
+  for (const p of cal.problems || []) bad.push(`Calendar: ${p}`);
+  if (SUM.days_to_calendar_end != null && SUM.days_to_calendar_end < 30) warn.push(`The calendar ends in ${SUM.days_to_calendar_end} days.`);
+  const pv = SUM.plan_now && SUM.plan_now.violations;
+  if (pv && pv.length) warn.push(`Plan: ${pv.join(", ")}`);
+  if (REC) {
+    const since = Date.now() / 1000 - 86400;
+    const failed = (REC.events || []).filter((e) => e.t >= since && (e.verdict === "failed" || e.error));
+    if (failed.length) warn.push(`${failed.length} failed lamp check${failed.length > 1 ? "s" : ""} in the last 24 h (${[...new Set(failed.map((e) => nm(e.plug)))].join(", ")}): see Problems below.`);
+  }
+  const n = bad.length + warn.length, lvl = bad.length ? "bad" : warn.length ? "warn" : "ok";
+  box.className = "card health" + (lvl === "ok" ? "" : " " + lvl);
+  const plugs = st ? Object.values(st.plugs || {}) : [];
+  const head = n ? `${n} thing${n > 1 ? "s need" : " needs"} attention` : "All clear";
+  const answering = plugs.filter((v) => v.ok !== false).length;
+  const sub = n && st && answering < plugs.length ? `${answering} of ${plugs.length} plugs answering` : "";
+  const items = bad.map((m) => `<li class="bad">${esc(m)}</li>`).concat(warn.map((m) => `<li class="warn">${esc(m)}</li>`));
+  const SHOW = 3, wasOpen = !!(box.querySelector("details") || {}).open;
+  box.innerHTML = `<span class="dot"></span><div><div class="hd">${head}</div>${sub ? `<div class="hint">${esc(sub)}</div>` : ""}` +
+    (n ? "<ul>" + items.slice(0, SHOW).join("") + "</ul>" : "") +
+    (n > SHOW ? `<details${wasOpen ? " open" : ""}><summary>${n - SHOW} more</summary><ul>${items.slice(SHOW).join("")}</ul></details>` : "") + "</div>";
+}
+
+/* -------------------------------------------------------------------- load */
+async function loadSummary() {
+  try { renderSummary(await getJSON("/api/summary")); renderHealth(); $("#sumerr").textContent = ""; }
+  catch (e) { $("#sumerr").textContent = "summary: " + e.message; }
+}
+async function loadYear() {
+  try { YEAR = await getJSON("/api/year"); renderYear(); }
+  catch (e) { $("#year").innerHTML = `<div class="err">year: ${esc(e.message)}</div>`; }
+}
+async function loadRecent() {
+  try { REC = await getJSON("/api/recent?days=1"); renderRecent(); renderLight(); $("#recerr").textContent = ""; }
+  catch (e) { $("#recerr").textContent = "recent: " + e.message; }
+}
+/* Folds remember open/closed per browser. Last 24 hours starts open; the others start closed. */
+for (const d of document.querySelectorAll("details.fold")) {
+  try {
+    const v = localStorage.getItem("track.open." + d.id);
+    if (v === "1") d.open = true; else if (v === "0") d.open = false;
+  } catch (e) { /* storage blocked */ }
+  d.addEventListener("toggle", () => {
+    try { localStorage.setItem("track.open." + d.id, d.open ? "1" : "0"); } catch (e) { /* storage blocked */ }
+    if (!d.open) return;
+    if (d.id === "d-recent" && REC) renderRecent();
+    else if (d.id === "d-light" && REC) renderLight();
+    else if (d.id === "d-year") { if (YEAR) renderYear(); else loadYear(); }
+  });
+}
+let rz = null;
+window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { renderYear(); renderRecent(); renderLight(); }, 150); });
+(async () => {
+  try { LINKS = await getJSON("/api/links"); } catch (e) { /* older server: defaults */ }
+  await loadSummary();
+  await Promise.all([loadRecent(), $("#d-year").open ? loadYear() : null]);
+  setInterval(async () => { await loadSummary(); loadRecent(); }, 60000);
+  setInterval(() => { if (YEAR) loadYear(); }, 15 * 60000);
+})();
+</script>
+</body>
+</html>

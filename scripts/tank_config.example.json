@@ -1,0 +1,181 @@
+{
+  "interval_s": 60,
+  "inputs": {
+    "temp": {
+      "_note": "The primary temperature. This example reads the Inkbird ITC-306A through its app in the Android emulator (scripts/inkbird_poll.py, one line every 5 minutes); without that emulator this input stays missing and raises temp_missing. Other sources: driver ds18b20_sysfs (a DS18B20 on a Pi or any Linux board), jsonl or http_json (any device that writes a line or answers a URL), or none (no feed yet: a warning only, and the over-temperature cutoff cannot act). No Raspberry Pi is required by any controller function. max_age_s is how old it may be before temp_stale; skip_errors keeps one failed poll from reading as missing.",
+      "driver": "jsonl",
+      "path": "/data/sensors/itc306a_docker.jsonl",
+      "field": "temp_c",
+      "max_age_s": 900,
+      "skip_errors": true,
+      "label": "Inkbird"
+    },
+    "probe_temp": {
+      "_note": "Optional second opinion (a probe on a Pi, for example); delete this input if you have none. Logged beside the Inkbird and compared by the setpoint watch; never an alarm of its own.",
+      "driver": "jsonl",
+      "path": "/data/sensors/temp.jsonl",
+      "field": "temp_c",
+      "offset_c": 0.0,
+      "label": "Pi probe"
+    },
+    "lux": {
+      "driver": "jsonl",
+      "path": "/data/sensors/lux.jsonl",
+      "field": "lux"
+    }
+  },
+  "plan": {
+    "dark_source": "astro",
+    "white_plus": { "enabled": true, "threshold": 0.5 },
+    "hourly_offsets_c": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "moon_lux_range": [
+      0.1,
+      0.3
+    ],
+    "curves": {
+      "white": {
+        "ramp_up_min": 30,
+        "ramp_down_min": 30,
+        "shape": "smoothstep",
+        "max": 1.0
+      },
+      "blue": {
+        "ramp_up_min": 30,
+        "ramp_down_min": 30,
+        "shape": "smoothstep",
+        "max": 1.0
+      }
+    }
+  },
+  "lifeguard": {
+    "_note": "The independent watchdog (scripts/lifeguard.py, compose service lifeguard). It always observes and alerts: water beyond the hard band (alarm_c widened by hard_margin_c), no thermometer for blind_min, the controller silent for controller_silent_min, low disk. safe_mode.enabled lets it also latch safe mode on over-temperature or a silent controller: every light off, heater left to its own thermostat, until the cause has been clear for release_after_min (latch auto) or `lifeguard.py reset --yes` (latch manual). Off by default, like every output.",
+    "enabled": true,
+    "controller_silent_min": 10,
+    "blind_min": 30,
+    "hard_margin_c": 0.5,
+    "repeat_min": 15,
+    "safe_mode": {
+      "enabled": false,
+      "latch": "auto",
+      "release_after_min": 15
+    }
+  },
+  "limits": {
+    "redundancy": {
+      "_note": "Several thermometers, one decision (scripts/tank_vote.py). failover true: when the primary temperature cannot be used, the over-temperature cutoff, the heater gate and the alarm band act on a healthy backup (probe_temp) instead of going blind. Off: the backup is only reported.",
+      "failover": false,
+      "miscompare_c": 1.0
+    },
+    "alarm_c": [
+      22.78,
+      28.89
+    ],
+    "dark_lux_max": 0.6,
+    "dark_lux_confirm_min": 3,
+    "plug_offline_min": 5,
+    "mute_alerts": [],
+    "alert_on_drift": false,
+    "temp_calibrated": false,
+    "still_warming": {
+      "enabled": true,
+      "above_c": 28.33,
+      "grace_min": 5,
+      "window_min": 30,
+      "rise_c": 0.15
+    }
+  },
+  "itc_setpoints": {
+    "_note": "Cue-driven Inkbird T1/T2 (tank_itc.py). Off. On, the tick writes data/itc/target.json from the plan's temperature cue (T1 = target - below_f, T2 = target + above_f, in F) and scripts/itc_setpoints.py applies it through the Android app. It targets the sandbox app unless ITC_PKG says otherwise; the real app is refused.",
+    "enabled": false,
+    "below_f": 0.2,
+    "above_f": 0.3,
+    "bounds_f": [73.0, 83.0],
+    "min_change_f": 0.5,
+    "min_interval_s": 3600,
+    "pending_alert_min": 45
+  },
+  "outputs": {
+    "enabled": false,
+    "channels": {
+      "white": false,
+      "white_plus": false,
+      "blue": false,
+      "moon": false
+    },
+    "lamp_deadman": {"enabled": true, "revert_after_s": 900, "plugs": null},
+    "override_hold_min": 30,
+    "protect_dark": true,
+    "min_command_interval_s": 30,
+    "max_commands_per_hour": 20,
+    "heater": {
+      "enabled": false,
+      "countdown_verified": false,
+      "inkbird_resume_verified": false,
+      "revert_after_s": 600,
+      "on_below_c": 0.15,
+      "off_above_c": 0.15,
+      "min_dwell_s": 120,
+      "floor_margin_c": 0.5,
+      "inkbird_min_c": 24.44,
+      "inkbird_max_c": 24.72,
+      "ramp_c_per_day": 0.1,
+      "cut_off_c": 28.33
+    },
+    "cooling": {
+      "_note": "Over-temperature cutoff + fan stub (tank_cool.py). Acts only when outputs.enabled AND cooling.enabled are true. Cuts the listed plugs at setpoint + cutoff_above_c (never above limits.alarm_c[1]); fans are wanted at setpoint + cutoff_above_c / 2, and by fans.on_by_c (83.5 F) at the latest (stub: records only). The ladder above the 83 F cap: heat cut-off 83 F (heater.cut_off_c), fans 83.5 F, plugs cut and alarm 84 F (limits.alarm_c[1]). Until the calendar starts (2026-11-01) 'plan' has no set point and only the alarm ceiling applies; use a number for a fixed set point.",
+      "enabled": false,
+      "plugs": [
+        "plug-10"
+      ],
+      "setpoint": "plan",
+      "cutoff_above_c": 1.0,
+      "resume_band_c": 0.5,
+      "min_off_s": 300,
+      "stale_release_min": 60,
+      "fans": {
+        "enabled": false,
+        "driver": "stub",
+        "on_above_c": null,
+        "band_c": 0.2,
+        "on_by_c": 28.61
+      }
+    },
+    "verify": {
+      "_note": "Cue -> action -> verify (tank_verify.py). After a command reads back, the effect is checked on later ticks: the plug's watts when it reports them, and the lux sensor for any channel with min_lux_change set (lux the lamp should add or remove at the sensor; leave null for a lamp the sensor cannot see). A command whose effect never shows raises effect_failed:<plug>.",
+      "enabled": true,
+      "settle_s": 45,
+      "window_s": 300,
+      "channels": {
+        "white": { "min_lux_change": null },
+        "white_plus": { "min_lux_change": null },
+        "blue": { "min_lux_change": null },
+        "moon": { "min_lux_change": null }
+      }
+    }
+  }
+}

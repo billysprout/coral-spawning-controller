@@ -1,0 +1,4 @@
+websocket-client>=1.6.0
+# Tuya local control for the plug array. 1.20.0 is what the Windows venv that
+# ran the wizard and scan uses; stay on that minor.
+tinytuya>=1.20,<1.21

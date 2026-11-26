@@ -1,0 +1,10 @@
+# Watch-night recorder (scripts/watch_record.py): python + ffmpeg, nothing else.
+FROM python:3.12-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg tzdata \
+ && rm -rf /var/lib/apt/lists/*
+ENV TZ=UTC PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY scripts/watch_record.py /app/watch_record.py
+ENTRYPOINT ["python", "/app/watch_record.py"]
+CMD ["run"]

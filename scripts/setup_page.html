@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tank Setup</title>
+<style>
+:root {
+  --bg: #f6f7f8; --panel: #ffffff; --ink: #1c2126; --muted: #5d6873; --line: #dde2e7;
+  --accent: #0f6e8c; --accent-ink: #ffffff; --ok: #1f7a4d; --warn: #9a6200; --bad: #b3261e;
+  --soft: #eef3f6; --chart-t: #0f6e8c; --chart-raw: #9fb3c0; --chart-w: #c2410c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111518; --panel: #1a2025; --ink: #e5e9ec; --muted: #9aa6b0; --line: #2c343b;
+    --accent: #4fb3d4; --accent-ink: #0b1215; --ok: #5cc28e; --warn: #e0a84a; --bad: #ef7d74;
+    --soft: #212a31; --chart-t: #4fb3d4; --chart-raw: #4a5c69; --chart-w: #f08a4b;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 18px 16px 8px; max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; }
+.banner { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--soft);
+  border-left: 4px solid var(--warn); font-size: 13px; }
+nav { display: flex; gap: 6px; max-width: 1100px; margin: 12px auto 0; padding: 0 16px; flex-wrap: wrap; }
+nav button { border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; }
+nav button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+nav .badge { font-size: 12px; opacity: .8; margin-left: 6px; }
+.progress { display: flex; align-items: center; gap: 10px; max-width: 1100px; margin: 10px auto 0; padding: 0 16px; font-size: 13px; color: var(--muted); }
+.progress .track { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress .fill { height: 100%; width: 0; background: var(--ok); border-radius: 3px; transition: width .3s; }
+.gopill { display: inline-block; min-width: 62px; text-align: center; font-size: 11px; font-weight: 700; padding: 1px 8px;
+  border-radius: 999px; border: 1px solid currentColor; letter-spacing: .03em; }
+.gopill.go { color: var(--ok); } .gopill.caution { color: var(--warn); } .gopill.nogo { color: var(--bad); } .gopill.off { color: var(--muted); }
+.layers { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 13px; align-items: baseline; margin-top: 8px; }
+details.card > summary { cursor: pointer; }
+details.card > summary .sectionhead { display: inline-flex; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); color: var(--ink); padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 60px; }
+section { display: none; } section.on { display: block; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin: 12px 0; }
+.card h2 { font-size: 16px; margin: 0 0 8px; }
+.card h3 { font-size: 14px; margin: 12px 0 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.loc { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; background: var(--panel); }
+.loc.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.loc.off { opacity: .55; cursor: not-allowed; }
+.loc b { display: block; font-size: 14px; }
+.loc small { color: var(--muted); display: block; }
+.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px;
+  border: 1px solid currentColor; margin-right: 4px; }
+.pill.rec { background: var(--ok); color: var(--panel); border-color: var(--ok); }
+.ready, .ready-by-species { color: var(--ok); } .half-ready { color: var(--warn); } .not-ready { color: var(--bad); }
+label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 3px; }
+input, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px; max-width: 100%; }
+input[type=checkbox], input[type=radio] { width: auto; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.row > div { min-width: 140px; }
+button.act { background: var(--accent); color: var(--accent-ink); border: 0; padding: 8px 14px;
+  border-radius: 7px; font: inherit; cursor: pointer; }
+button.sec { background: transparent; color: var(--accent); border: 1px solid var(--accent);
+  padding: 5px 10px; border-radius: 7px; font: inherit; cursor: pointer; }
+button.big, a.big { display: inline-block; font-size: 17px; padding: 12px 20px; border-radius: 9px;
+  background: var(--accent); color: var(--accent-ink); text-decoration: none; border: 0; cursor: pointer; font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th, .tbl td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { color: var(--muted); font-weight: 600; }
+.scroll { overflow-x: auto; }
+.warn { color: var(--warn); } .bad { color: var(--bad); } .ok { color: var(--ok); } .muted { color: var(--muted); }
+ul.w { margin: 6px 0; padding-left: 20px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 13px; }
+.kv div:nth-child(odd) { color: var(--muted); }
+code { font-size: 12px; background: var(--soft); padding: 1px 4px; border-radius: 4px; }
+svg text { fill: var(--muted); font-size: 11px; }
+.msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
+.why { color: var(--muted); font-size: 12px; }
+@media (max-width: 640px) { .tbl { font-size: 12px; } .kv { grid-template-columns: 1fr; } .kv div:nth-child(odd) { margin-top: 6px; } }
+.guide { counter-reset: g; }
+.gstep { border-left: 3px solid var(--line); padding: 2px 0 2px 14px; margin: 14px 0; }
+.gstep.done { border-left-color: var(--ok); }
+.gstep h3 { margin: 0 0 4px; font-size: 15px; }
+.gstep h3::before { counter-increment: g; content: counter(g) ". "; color: var(--accent); }
+.gstep ol { margin: 4px 0 6px; padding-left: 20px; font-size: 14px; }
+.gstep ol li { margin: 3px 0; }
+.tier { font-size: 11px; padding: 1px 7px; border-radius: 99px; margin-left: 6px; }
+.tier.critical { background: var(--bad); color: var(--panel); }
+.sp-row.sel { background: var(--soft); }
+.fn-what { color: var(--muted); font-size: 12px; }
+.sectionhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* wizard */
+.intro { font-size: 14px; }
+.intro p { margin: 6px 0; }
+.wbar { display: flex; gap: 4px; margin: 6px 0 4px; }
+.wbar span { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+.wbar span.done { background: var(--ok); } .wbar span.now { background: var(--accent); }
+.wstep { display: none; } .wstep.on { display: block; }
+.wnav { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.wnav .sp, .stepnav .sp { flex: 1; }
+.stepnav { display: flex; gap: 10px; align-items: center; margin: 18px 0 0; flex-wrap: wrap; }
+.choice { display: block; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0;
+  color: inherit; font-size: 14px; cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.choice small { display: block; color: var(--muted); margin-left: 22px; }
+details { margin: 10px 0; }
+details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+.plain { font-size: 14px; margin: 6px 0; padding-left: 20px; }
+.plain li { margin: 4px 0; }
+.check { list-style: none; padding: 0; margin: 6px 0; }
+.check li { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.check li .n { font-weight: 600; min-width: 1.6em; color: var(--accent); }
+.check li .t { flex: 1; min-width: 180px; }
+.hero { border-left: 5px solid var(--ok); }
+.hero.todo { border-left-color: var(--accent); }
+.ph { border: 1px dashed var(--warn); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--warn); margin: 8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tank setup</h1>
+  <div class="sub">Five steps. Nothing on the tank changes until you press a Confirm, Save or Write button.</div>
+  <div class="banner" id="staging" hidden><b>Practice mode.</b> This page works on a copy of your data (staging). Nothing you do here changes the running tank, and it will refuse to switch a real plug.</div>
+</header>
+<nav aria-label="Setup steps">
+  <button data-tab="home" class="on">Home</button>
+  <button data-tab="cal">1 · Spawning calendar<span class="badge" id="b-cal"></span></button>
+  <button data-tab="dev">2 · Smart plugs<span class="badge" id="b-dev"></span></button>
+  <button data-tab="itc">3 · Heater controller<span class="badge" id="b-itc"></span></button>
+  <button data-tab="tg">4 · Phone alerts<span class="badge" id="b-tg"></span></button>
+  <button data-tab="dec">5 · Safety checks<span class="badge" id="b-dec"></span></button>
+</nav>
+<div class="progress" aria-live="polite"><div class="track"><div class="fill" id="prog-bar"></div></div><span id="prog-txt"></span></div>
+<main>
+<!-- HOME -->
+<section id="home" class="on">
+  <div class="card hero todo" id="home-welcome" hidden>
+    <h2>Welcome</h2>
+    <div class="intro">
+      <p>This controller copies a coral reef's year into your tank: the length of each day, the moonlight and the water temperature, shifted so your animals get the cues that tell them when to spawn. It also marks the <b>watch nights</b>: the few evenings each year when spawning is most likely, so you know when to look.</p>
+      <p><b>What you'll need:</b></p>
+      <ul class="plain">
+        <li>About 30 to 60 minutes.</li>
+        <li>For step 1: nothing but this page. It is a few questions, then a preview you check.</li>
+        <li>For step 2: your Tuya / Smart Life plugs paired in the app, and a computer to make a free Tuya developer account.</li>
+        <li>For step 3: the Inkbird ITC-306A heater controller and its app in the emulator.</li>
+        <li>For step 4 (recommended): the Telegram app on your phone.</li>
+      </ul>
+      <p>You can stop at any point: every step is saved and this page picks up where you left off.</p>
+    </div>
+    <div style="margin-top:12px"><button class="big" data-go="cal">Start step 1: the spawning calendar</button></div>
+  </div>
+  <div class="card hero" id="home-done" hidden>
+    <h2>You're set up</h2>
+    <div class="kv" id="home-sum"></div>
+    <div style="margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <a class="big" id="home-track" href="#" rel="noopener">Open the tracking page</a>
+      <button class="sec" data-go="cal">Change the calendar</button>
+    </div>
+    <div class="why" id="home-track-note" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <h2>Your setup, step by step</h2>
+    <ul class="check" id="home-steps"></ul>
+  </div>
+  <div class="card" id="home-pre-card" hidden>
+    <div class="sectionhead"><h2>Launch check</h2><span class="sub" id="home-pre-sum"></span></div>
+    <div class="sub">Every safety layer the tank has, and whether it is ready. GO is ready, NO-GO needs you, OFF is optional and not set up. Change them in step 5.</div>
+    <div class="layers" id="home-pre"></div>
+  </div>
+  <div class="card" id="home-now-card" hidden><h2>What the controller follows right now</h2><div class="kv" id="home-now"></div></div>
+</section>
+
+<!-- 1 -->
+<section id="cal">
+  <div class="card">
+    <div class="sectionhead"><h2 id="w-title">Spawning calendar</h2><span class="sub" id="w-count"></span></div>
+    <div class="wbar" id="w-bar"></div>
+    <div class="why">Answer one question per screen. A recommended answer is already picked where there is one; you can just press Next.</div>
+  </div>
+
+  <div class="card wstep" data-w="0">
+    <h2>Where do your animals come from?</h2>
+    <div class="intro"><p>Pick the reef whose year your tank should copy. Each reef has its own spawning season. If you keep <i>Stichodactyla gigantea</i> (giant carpet anemone), the recommended choice is built from the only aquarium record of this anemone spawning.</p></div>
+    <div class="grid" id="locs" style="margin-top:10px"></div>
+    <div class="why" style="margin-top:8px"><b>Good data</b>: enough records to trust the season. <b>Pick a species</b>: good data, but the season mixes many species, so choose one in the next step. <b>Limited data</b>: usable, with care. <b>Missing data</b>: cannot be used yet.</div>
+    <div class="ph">OWNER DECISION (placeholder): which targets to offer beyond <i>S. gigantea</i>. Other anemone species have no spawning record here yet; the other reefs' seasons come from coral and other records.</div>
+  </div>
+
+  <div class="card wstep" data-w="1">
+    <h2>What do you want to spawn?</h2>
+    <div id="opt-caveats" class="why"></div>
+    <div class="intro"><p>Each species spawns on its own few nights. Picking one aims the <b>watch nights</b> at that species. If yours is not listed, keep <b>the whole reef</b>.</p></div>
+    <div id="sp-hint"></div>
+    <label class="choice"><input type="radio" name="sp" value="" id="sp-none"> <b>The whole reef</b> (every species pooled)
+      <small>A wider window that covers many species; fewer surprises, less precise.</small></label>
+    <div class="row" style="margin:6px 0"><div><label>Find a species</label><input id="sp-filter" placeholder="e.g. Acropora" size="18"></div></div>
+    <div class="scroll" style="max-height:320px;overflow-y:auto"><table class="tbl" id="sp"></table></div>
+    <div class="sub" id="sp-more"></div>
+    <details id="sp-adv"><summary>Advanced: a genus window, or a wider window</summary>
+      <div class="row">
+        <div id="genus-wrap"><label>Use a genus window instead</label><select id="genus"></select></div>
+        <div><label>Widen the season by ± days</label><input id="pad-s" value="0" size="5"></div>
+        <div><label>Widen the moon window by ± days</label><input id="pad-m" value="0" size="5"></div>
+      </div>
+      <div class="why">Most records are only a few nights. Widening by a few days makes it less likely you miss the real night. Species from coral records start at ±3 days season and ±1 day moon; the JAZA record is already widened.</div>
+    </details>
+    <div class="why" id="aim"></div>
+  </div>
+
+  <div class="card wstep" data-w="2">
+    <h2>Which water temperature curve?</h2>
+    <div class="intro"><p>This is the water temperature your heater aims for on each day of the copied year. The first option is the recommended one.</p></div>
+    <div id="temps"></div>
+  </div>
+
+  <div class="card wstep" data-w="3">
+    <h2>When does the programme start?</h2>
+    <div class="intro">
+      <p>Your tank plays the reef's year shifted in time. You choose how long until the first <b>spawning season</b>.</p>
+      <p><b>Recommended:</b> give the animals a full year out of season first, so they live through a whole reef winter and summer before the first season. Fewer days means a sooner season, but the first one is then only a practice run.</p>
+    </div>
+    <div class="row">
+      <div><label>First day of the programme (usually today)</label><input type="date" id="start"></div>
+      <div><label id="mode-label">Days until the spawning season</label><input id="mode-val" value="300" size="12"></div>
+      <div><button class="sec" id="lead-rec">Use the recommended number</button></div>
+    </div>
+    <div class="why" id="lead-why"></div>
+    <details><summary>Advanced: place the season another way, or change the calendar length</summary>
+      <div class="row">
+        <div><label>How to place the season</label>
+          <select id="mode"><option value="lead">days until the spawning season (recommended)</option>
+            <option value="cue_date">the reef date to play on the first day</option><option value="offset">a raw offset in days</option></select></div>
+        <div><label>Calendar length (days)</label><input id="days" value="730" size="6"></div>
+      </div>
+      <div class="why">730 days (two years) is the default. The tracking page warns before the calendar runs out.</div>
+    </details>
+  </div>
+
+  <div class="card wstep" data-w="4">
+    <h2>Your tank's clock and safety limits</h2>
+    <div class="intro"><p>The reef's sunrise and sunset are replayed around <b>your</b> midday, so the lights come on at sensible local hours. A rough location is enough: the nearest city.</p></div>
+    <div class="row">
+      <div><label>Time zone</label><input id="ts-tz" size="22"></div>
+      <div><button class="sec" id="ts-mine">Use this computer's time zone</button></div>
+    </div>
+    <div class="why" id="tz-why"></div>
+    <div class="row">
+      <div><label>Latitude (south is negative)</label><input id="ts-lat" size="8"></div>
+      <div><label>Longitude (west is negative)</label><input id="ts-lon" size="8"></div>
+    </div>
+    <div class="ph">OWNER DECISION (placeholder): the shipped default site is the owner's tank (Los Angeles / San Diego). A new user should check it; whether to require one is not decided.</div>
+    <h3>Temperature safety limits</h3>
+    <div class="intro"><p>Whatever the reef did, the water target never goes outside these limits, and never changes faster than the daily limit. The defaults suit most tropical reef tanks.</p></div>
+    <div class="row">
+      <div><label>Never colder than (°F)</label><input id="band-lo" size="6"></div>
+      <div><label>Never warmer than (°F)</label><input id="band-hi" size="6"></div>
+      <div><label>Largest change per day (°F)</label><input id="step" size="6"></div>
+    </div>
+    <div class="why" id="band-c"></div>
+    <div class="msg" id="msg-tank"></div>
+  </div>
+
+  <div class="card wstep" data-w="5">
+    <h2>Check the plan</h2>
+    <div class="msg" id="msg-preview"></div>
+    <div id="pv" hidden>
+      <ul class="plain" id="pv-plain"></ul>
+      <div id="pv-warn"></div>
+      <div class="scroll"><svg id="chart" width="100%" height="190" viewBox="0 0 1000 190" preserveAspectRatio="none" role="img" aria-label="Water target over the calendar, in degrees Fahrenheit"></svg></div>
+      <div class="sub">Blue line: the daily water target (°F). Grey: what the reef did, before your safety limits. Orange ticks: watch nights.</div>
+      <h3>Watch nights</h3><div class="scroll"><table class="tbl" id="pv-watch"></table></div>
+      <details><summary>Technical details</summary>
+        <div id="pv-sum" class="kv"></div>
+        <h3>First week</h3><div class="scroll"><table class="tbl" id="pv-rows"></table></div>
+      </details>
+    </div>
+    <div style="margin-top:8px"><button class="sec" id="btn-preview">Build the preview again</button></div>
+  </div>
+
+  <div class="card wstep" data-w="6">
+    <h2>Confirm</h2>
+    <div class="intro" id="cf-what"></div>
+    <div id="cf-form">
+      <label style="display:inline;color:inherit"><input type="checkbox" id="pv-ok"> I checked the plan; make it my tank's calendar</label>
+      <div style="margin-top:10px"><button class="big" id="btn-apply" disabled>Confirm and apply</button></div>
+    </div>
+    <div class="msg" id="msg-apply"></div>
+    <div id="cf-done" hidden>
+      <div class="intro"><p class="ok"><b>Done.</b> <span id="cf-file"></span></p>
+        <p>Next: tell the controller which plug runs which lamp (step 2), then the heater controller, alerts and the safety checks.</p></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+        <button class="big" data-go="dev">Go to step 2: smart plugs</button>
+        <button class="sec" data-go="home">Back to home</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card"><div class="wnav">
+    <button class="sec" id="w-back">← Back</button><span class="sp"></span>
+    <span class="msg" id="w-msg" style="margin:0"></span>
+    <button class="act" id="w-next">Next →</button>
+  </div></div>
+</section>
+
+<!-- 2 -->
+<section id="dev">
+  <div class="card intro"><h2>Step 2 · Smart plugs</h2>
+    <p>The controller turns your lamps (and optionally a heater) on and off through Tuya / Smart Life Wi-Fi plugs. Here you pair them, fetch the keys that let this computer talk to them directly, and tell the controller which plug runs which lamp.</p></div>
+  <div class="card guide">
+    <h2>Tuya plugs, step by step</h2>
+    <div class="sub" id="dev-state"></div>
+    <div class="gstep" id="g-pair"><h3>Pair each plug in the Smart Life app</h3><ol>
+      <li>On your phone, install <b>Smart Life</b> (publisher Volcano Technology / Tuya). Make an account and note which country you chose: it decides your data center in step 2.</li>
+      <li>Put your phone on the <b>2.4 GHz</b> Wi-Fi the plugs will use (Tuya plugs cannot join 5 GHz).</li>
+      <li>Plug in one plug with nothing attached. Hold its button about 5 seconds until the light blinks fast.</li>
+      <li>In Smart Life tap <b>+</b>, <b>Add device</b>, and follow the steps until the plug appears. Turn it on and off from the app once to be sure.</li>
+      <li><b>Name it after its job</b> in the app (e.g. <code>plug-8 white</code>) and stick the same label on the plug. Names here and in the app should match, so you can never confuse two plugs.</li>
+      <li>Repeat for every plug. Dimmer switches pair the same way; each one has two gangs (two lamps).</li>
+      <li>In your router, give every plug a <b>fixed address (DHCP reservation)</b>. The controller talks to plugs by address; a plug that changes address after a power cut drops out.</li>
+    </ol></div>
+    <div class="gstep" id="g-cloud"><h3>Get the plugs' local keys (once)</h3><ol>
+      <li>Go to <b>iot.tuya.com</b> on a computer and make a free developer account.</li>
+      <li><b>Cloud → Development → Create Cloud Project.</b> Any name; Industry <i>Smart Home</i>; Development Method <i>Smart Home</i>; <b>Data Center</b> = the one for your Smart Life country (United States → Western America).</li>
+      <li>Keep the default API services (IoT Core, Authorization) and confirm.</li>
+      <li>In the project, open <b>Devices → Link App Account → Add App Account</b>. A QR code appears.</li>
+      <li>In Smart Life on your phone: <b>Me</b> tab, scan icon top right, scan that QR code, confirm. Your plugs now list in the project.</li>
+      <li>Project <b>Overview</b>: copy the <b>Access ID</b> and <b>Access Secret</b>. From <b>Devices</b>, copy any one Device ID.</li>
+      <li>Fill the form below and fetch. This saves every device and its local key in <code>tuya/devices.json</code>, which never leaves this computer. Re-run it whenever you re-pair a plug (re-pairing changes its key).</li>
+    </ol>
+    <div class="row">
+      <div><label>Region</label><select id="cl-region"><option value="us">us (Western America)</option><option value="us-e">us-e (Eastern America)</option><option value="eu">eu (Central Europe)</option><option value="eu-w">eu-w (Western Europe)</option><option value="cn">cn (China)</option><option value="in">in (India)</option></select></div>
+      <div><label>Access ID</label><input id="cl-key" autocomplete="off"></div>
+      <div><label>Access Secret</label><input id="cl-secret" type="password" autocomplete="off"></div>
+      <div><label>Any one Device ID</label><input id="cl-dev" autocomplete="off"></div>
+    </div>
+    <label style="display:inline"><input type="checkbox" id="cl-remember"> keep the secret in tuya/tinytuya.json for re-keying later</label>
+    <div style="margin-top:8px"><button class="act" id="btn-cloud">Fetch devices and keys</button> <span class="msg" id="msg-cloud"></span></div>
+    </div>
+    <div class="gstep" id="g-find"><h3>Find each plug on your network</h3><ol>
+      <li>Click <b>Listen for plugs</b>: plugs announce themselves every few seconds, so 8 seconds is enough. Nothing is sent to them.</li>
+      <li>Inside Docker Desktop this usually hears nothing. Then type each plug's reserved address into the table below (your router's device list shows it).</li>
+    </ol>
+    <button class="sec" id="btn-scan">Listen for plugs</button> <span class="msg" id="msg-scan"></span></div>
+    <div class="gstep" id="g-name"><h3>Name each plug and give it a job</h3><ol>
+      <li>One row per plug (one per gang on a dimmer). Keep the names from the Smart Life step.</li>
+      <li>Pick a <b>function</b> for each. Not sure what a plug feeds? Leave it <i>Not used</i>, then check with <code>conductor.py measure-lamp</code> (it switches the lamp and reads the light sensor) before you assign it.</li>
+      <li>Changing the function of a plug that already has one asks you to confirm you checked it.</li>
+    </ol>
+    <div id="fn-legend" class="why"></div>
+    <div class="scroll"><table class="tbl" id="arr"></table></div>
+    <label style="display:inline"><input type="checkbox" id="arr-ack"> function changes are checked (notes and a lux step)</label>
+    <div style="margin-top:8px"><button class="act" id="btn-save">Save plugs</button> <span class="msg" id="msg-arr"></span></div></div>
+    <div class="gstep" id="g-check"><h3>Check every plug answers</h3><ol>
+      <li>One read-only status question per plug. Red rows say what to fix.</li>
+      <li>Then go to <b>5 · Safety checks</b>: each plug's fail-safes are set there, by its function.</li>
+    </ol>
+    <button class="sec" id="btn-health">Check plugs</button> <span class="msg" id="msg-hl"></span>
+    <div class="scroll"><table class="tbl" id="hl"></table></div></div>
+    <div class="stepnav"><button class="sec" data-go="cal">← Step 1</button><span class="sp"></span><button class="act" data-go="itc">Next: heater controller →</button></div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="itc">
+  <div class="card intro"><h2>Step 3 · Heater controller (Inkbird ITC-306A)</h2>
+    <p>The Inkbird holds the water at its set point and reads the tank temperature. The controller reads it through the Inkbird app running in an emulator. Work through the checklist below and tick each item when it is done.</p></div>
+  <div class="card"><h2>Inkbird status</h2><div id="itc-st" class="kv"></div></div>
+  <div class="card guide"><h2>Inkbird in the emulator, step by step</h2><div id="itc-list"></div>
+    <div class="stepnav"><button class="sec" data-go="dev">← Step 2</button><span class="sp"></span><button class="act" data-go="tg">Next: phone alerts →</button></div></div>
+</section>
+
+<!-- 4 -->
+<section id="tg">
+  <div class="card intro"><h2>Step 4 · Phone alerts (recommended)</h2>
+    <p>If the water gets too hot or cold, a plug stops answering or the controller stops, a message goes to your phone through Telegram. Without it, nobody hears about a problem until they look.</p></div>
+  <div class="card"><h2>Alert status</h2><div id="tg-st" class="kv"></div>
+    <div style="margin-top:8px"><button class="sec" id="btn-chats">Find chat ids</button>
+      <button class="sec" id="btn-tgtest">Send test alert</button> <span class="msg" id="msg-tg"></span></div>
+    <div class="scroll"><table class="tbl" id="tg-chats"></table></div></div>
+  <div class="card guide"><h2>Telegram alerts, step by step</h2><div id="tg-list"></div>
+    <div class="stepnav"><button class="sec" data-go="itc">← Step 3</button><span class="sp"></span><button class="act" data-go="dec">Next: safety checks →</button></div></div>
+</section>
+
+<!-- 5 -->
+<section id="dec">
+  <div class="card intro"><h2>Step 5 · Safety checks</h2>
+    <p>The controller ships with safety settings, but none counts as checked until a person says so. Go through each row: press <b>Confirm</b> if the value is right for your tank, or type a new one and press <b>Change</b>. Do the <b>critical</b> ones first. Temperatures are shown and typed in °F. Confirmed rows are hidden until you choose <b>All</b>.</p></div>
+  <div class="card">
+    <div class="sectionhead"><h2>Critical life support</h2><span class="sub" id="crit-count"></span><span class="sp" style="flex:1"></span>
+      <span class="seg" id="dec-filter"><button data-f="todo" class="on">To do</button><button data-f="all">All</button></span></div>
+    <div class="sub">What keeps the animals alive if something fails: temperature limits, the cutoff, the heater path, alerts and hardware. Confirm these first.</div>
+    <div id="dec-crit"></div>
+  </div>
+  <details class="card">
+    <summary><div class="sectionhead"><h2>By plug function</h2><span class="sub" id="fn-count"></span></div></summary>
+    <div class="sub">Built from the plugs and functions in step 2. Each plug gets the fail-safes its job needs, and its power-on state.</div>
+    <div style="margin:8px 0"><button class="sec" id="btn-po">Read power-on states</button> <span class="msg" id="msg-po"></span></div>
+    <div id="dec-fn"></div>
+  </details>
+  <details class="card">
+    <summary><div class="sectionhead"><h2>Other settings</h2><span class="sub" id="oth-count"></span></div></summary>
+    <div class="sub">Cue, light and sensor settings. Getting one wrong costs cue fidelity, not the animals.</div>
+    <div id="dec-oth"></div>
+  </details>
+  <div class="stepnav"><button class="sec" data-go="tg">← Step 4</button><span class="sp"></span><button class="act" data-go="home">Finish: back to home →</button></div>
+</section>
+
+<details class="card" style="margin-top:24px"><summary>Technical details</summary><div class="kv" id="where" style="margin-top:8px"></div></details>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (v) => v === null || v === undefined ? "—" : (typeof v === "object" ? JSON.stringify(v) : String(v));
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json", "X-Setup": "1"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({error: "bad reply"}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function say(id, text, cls) { const e = $(id); e.className = "msg " + (cls || ""); e.textContent = text; }
+function kv(obj) { return Object.entries(obj).map(([k, v]) => `<div>${esc(k)}</div><div>${esc(fmt(v))}</div>`).join(""); }
+function kvh(pairs) { return pairs.map(([k, v]) => `<div>${esc(k)}</div><div>${v}</div>`).join(""); }
+
+/* Fahrenheit first; the backend works in °C */
+const cToF = (c) => c * 9 / 5 + 32;
+const fToC = (f) => (f - 32) * 5 / 9;
+const r1 = (v, n = 1) => (Math.round(v * 10 ** n) / 10 ** n).toFixed(n);
+function tf(c, n = 1) { c = Number(c); return c === null || isNaN(c) ? "–" : `${r1(cToF(c), n)} °F`; }
+function tfc(c) { c = Number(c); return isNaN(c) ? "–" : `${r1(cToF(c), 1)} °F (${r1(c, 1)} °C)`; }
+function dF(dc, n = 2) { return `${r1(Number(dc) * 9 / 5, n)} °F`; }
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function md(s) { if (!s) return "–"; const p = String(s).slice(-5).split("-"); return `${MON[+p[0] - 1] || "?"} ${+p[1]}`; }
+function day(iso) { if (!iso) return "–"; const [y, m, d] = iso.slice(0, 10).split("-"); return `${MON[+m - 1]} ${+d}, ${y}`; }
+function todayIso() { const t = new Date(); return new Date(t - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function daysUntil(iso) { return Math.round((Date.parse(iso + "T00:00:00Z") - Date.parse(todayIso() + "T00:00:00Z")) / 864e5); }
+
+/* ---------------- links between the two pages ---------------- */
+let LINKS = {track_url: null, track_port: 8095};
+function trackHref() {
+  if (LINKS.track_url) return LINKS.track_url;
+  return `${location.protocol}//${location.hostname}:${LINKS.track_port}/`;
+}
+
+/* ---------------- tabs ---------------- */
+const LOADERS = {home: () => loadHome(), cal: () => loadCal(), dev: () => loadDev(), itc: () => loadItc(), tg: () => loadTg(), dec: () => loadDec()};
+function showTab(id) {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x.dataset.tab === id));
+  document.querySelectorAll("main > section").forEach((s) => s.classList.toggle("on", s.id === id));
+  window.scrollTo(0, 0);
+  if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+  LOADERS[id]();
+}
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+document.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-go]");
+  if (!g) return;
+  e.preventDefault();
+  if (g.dataset.go === "cal") { W = 0; }
+  showTab(g.dataset.go);
+});
+
+let OV = null;
+async function loadOverview() {
+  const o = await api("/api/overview");
+  OV = o;
+  $("where").innerHTML = kv({"data folder": o.data, "active params": o.active_params, "staging (practice copy)": o.staging ? "yes" : "no",
+    "calendars on disk": o.calendars.join(", ") || "none", "tracking page": trackHref()});
+  $("staging").hidden = !o.staging;
+  const cr = o.decisions.critical || {confirmed: o.decisions.confirmed, of: o.decisions.of};
+  const done = {cal: !!o.calendar, dev: !!o.plugs.saved, itc: o.itc.done >= o.itc.of,
+    tg: !!o.telegram && o.telegram.done >= o.telegram.of, dec: cr.of > 0 && cr.confirmed >= cr.of};
+  for (const k of Object.keys(done)) $("b-" + k).textContent = done[k] ? " ✓" : "";
+  const n = Object.values(done).filter(Boolean).length;
+  $("prog-bar").style.width = `${n * 20}%`;
+  $("prog-txt").textContent = n === 5 ? "all 5 steps done" : `${n} of 5 steps done`;
+  return o;
+}
+
+/* ---------------- HOME ---------------- */
+const GOPILL = { go: "GO", caution: "CAUTION", nogo: "NO-GO", off: "OFF" };
+async function loadPreflight() {
+  /* the lifeguard's go / no-go list for this data folder (a dry look: it changes nothing) */
+  try {
+    const p = await api("/api/preflight");
+    const on = p.layers.filter((x) => x.state !== "off");
+    $("home-pre-sum").textContent = `${on.filter((x) => x.state === "go").length} of ${on.length} ready`;
+    $("home-pre").innerHTML = p.layers.map((x) => `<div><span class="gopill ${esc(x.state)}">${GOPILL[x.state] || esc(x.state)}</span></div>
+      <div><b>${esc(x.name)}</b> <span class="muted">${esc(x.detail)}</span></div>`).join("");
+    $("home-pre-card").hidden = false;
+  } catch (e) { $("home-pre-card").hidden = true; }
+}
+function targetName(b) { return b.species || (b.genus ? `genus ${b.genus}` : "the whole reef"); }
+async function loadHome() {
+  const o = await loadOverview();
+  const c = o.calendar;
+  $("home-welcome").hidden = !!c;
+  $("home-done").hidden = !c;
+  if (c) {
+    const b = c.basis, w = b.window || {};
+    $("home-sum").innerHTML = kvh([
+      ["Reef", esc(b.locale_name)],
+      ["Aiming at", `<i>${esc(targetName(b))}</i>`],
+      ["Programme started", esc(day(b.start))],
+      ["Reef spawning season", `${esc(md(w.season_start))} – ${esc(md(w.season_end))}, ${esc(w.daf_lo)}–${esc(w.daf_hi)} nights after the full moon`],
+      ["Calendar", `${esc(b.days)} days, confirmed ${esc(day(c.confirmed_utc))}`],
+      ["To change it", `press <b>Change the calendar</b>: you get a preview and nothing changes until you confirm again.`]]);
+    const a = $("home-track"); a.href = trackHref();
+    $("home-track-note").textContent = "The tracking page shows today's targets, the next watch night and what the water and lamps actually did." +
+      (o.staging ? " This setup page works on a practice copy: if the tracking page shows the live tank, it will not show changes made here." : "");
+  }
+  const crit = o.decisions.critical || {confirmed: o.decisions.confirmed, of: o.decisions.of};
+  const steps = [
+    ["cal", "Spawning calendar", c ? "done" : "not started", !!c],
+    ["dev", "Smart plugs", o.plugs.saved ? `${o.plugs.count} plugs saved` : "not saved yet", !!o.plugs.saved],
+    ["itc", "Heater controller (Inkbird)", `${o.itc.done} of ${o.itc.of} checklist items`, o.itc.done >= o.itc.of],
+    ["tg", "Phone alerts (recommended)", `${o.telegram.done} of ${o.telegram.of} steps`, o.telegram.done >= o.telegram.of],
+    ["dec", "Safety checks", `${crit.confirmed} of ${crit.of} critical items confirmed`, crit.confirmed >= crit.of && crit.of > 0],
+  ];
+  const next = steps.find((s) => !s[3]);
+  $("home-steps").innerHTML = steps.map(([id, t, st, done], i) => `<li><span class="n">${i + 1}</span>
+    <span class="t"><b>${esc(t)}</b><br><span class="${done ? "ok" : "muted"}">${done ? "✓ " : ""}${esc(st)}</span></span>
+    <button class="${next && next[0] === id ? "act" : "sec"}" data-go="${id}">${done ? "Review" : next && next[0] === id ? "Do this next" : "Open"}</button></li>`).join("");
+  loadPreflight();
+  const t = o.today;
+  $("home-now-card").hidden = !t;
+  if (t) $("home-now").innerHTML = kvh([["Calendar file", `<code>${esc(t.file)}</code>${c ? "" : ' <span class="muted">(newest on disk; none confirmed here yet)</span>'}`],
+    ["Today's water target", t.target_c == null ? `<span class="warn">today (${esc(day(t.date))}) is outside this calendar</span>` : esc(tfc(t.target_c))],
+    ["Reef day played today", esc(t.cue_date ? md(t.cue_date) : "–")]]);
+}
+
+/* ---------------- 1: calendar wizard ---------------- */
+const WTITLES = ["Where your animals come from", "What to spawn", "Water temperature curve", "When to start",
+  "Clock and safety limits", "Check the plan", "Confirm"];
+let W = 0, LOCS = [], LOC = null, LAST = null, SP = null, TS = null, APPLIED = false;
+const READY = {"ready": "Good data", "ready-by-species": "Pick a species", "half-ready": "Limited data", "not-ready": "Missing data"};
+const TEMP_PLAIN = {
+  jaza: "Measured in the JAZA aquarium, where S. gigantea spawned",
+  locale_reef: "Measured on this reef by loggers in the water",
+  locale_logger: "Measured by a reef logger near this spot, checked against satellite data",
+  locale_sst: "Sea-surface temperature from satellites (right timing, rougher values)",
+  jaza_aligned: "The JAZA aquarium curve, moved in time to this reef's season",
+};
+async function loadCal() {
+  await loadOverview();
+  if (!LOCS.length) {
+    $("w-title").textContent = "Step 1 · Spawning calendar: loading the reefs…";
+    LOCS = await api("/api/locales");
+    TS = await api("/api/tank_site");
+    $("ts-lat").value = TS.lat; $("ts-lon").value = TS.lon; $("ts-tz").value = TS.tz;
+    $("band-lo").value = r1(cToF(TS.safety_band_c[0])); $("band-hi").value = r1(cToF(TS.safety_band_c[1]));
+    $("step").value = r1(TS.max_step_c_per_day * 9 / 5, 2);
+    $("start").value = todayIso();
+    tzWhy(); bandC();
+    drawLocs();
+    // default: the recommended reef (the backend's own default, Okinawa)
+    if (!LOC) pickLoc(LOCS[0]);
+  }
+  goW(APPLIED ? 0 : W);
+  APPLIED = false;
+}
+function drawLocs() {
+  $("locs").innerHTML = LOCS.map((l, i) => `<div class="loc${LOC && LOC.id === l.id ? " sel" : ""}${l.readiness === "not-ready" ? " off" : ""}" data-i="${i}" tabindex="0" role="button" aria-pressed="${LOC && LOC.id === l.id}">
+     <b>${esc(l.name)}</b>
+     ${i === 0 ? '<span class="pill rec">Recommended</span>' : ""}<span class="pill ${esc(l.readiness)}">${esc(READY[l.readiness] || l.readiness)}</span>
+     <small>Spawning season on the reef: ${esc(md(l.season_start))} – ${esc(md(l.season_end))}</small>
+     <small>${esc(l.records)} records · ${(l.species || []).length} species · data grade ${esc(l.grade)}</small></div>`).join("");
+  document.querySelectorAll(".loc").forEach((e) => {
+    const go = () => { const l = LOCS[+e.dataset.i]; if (l.readiness !== "not-ready") pickLoc(l); };
+    e.onclick = go; e.onkeydown = (k) => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); go(); } };
+  });
+}
+function pickLoc(l) {
+  LOC = l; SP = null; LAST = null;
+  drawLocs();
+  $("opt-caveats").innerHTML = `<b>${esc(l.name)}</b>: ` + l.caveats.map(esc).join("; ");
+  $("temps").innerHTML = l.temps.map((t, i) => `<label class="choice">
+     <input type="radio" name="temp" value="${esc(t.id)}" ${i === 0 ? "checked" : ""}> ${i === 0 ? '<span class="pill rec">Recommended</span>' : ""}<b>${esc(TEMP_PLAIN[t.id] || t.label)}</b>
+     <small>${esc(t.label)} · data level ${esc(t.level)} (0 = measured in a tank or on the reef, 4 = satellite)</small></label>`).join("");
+  $("genus").innerHTML = `<option value="">—</option>` + l.genera.map((g) => `<option value="${esc(g.genus)}">${esc(g.genus)} (${esc(g.grade)}, ${g.n_nights} nights, ${esc(md(g.season_start))}–${esc(md(g.season_end))})</option>`).join("");
+  $("genus-wrap").hidden = !l.genera.length; $("sp-filter").value = "";
+  $("pad-s").value = 0; $("pad-m").value = 0;
+  // the owner's own target comes pre-selected where it exists
+  const jaza = (l.species || []).find((s) => s.padded);
+  if (jaza) SP = jaza.species;
+  $("sp-hint").innerHTML = l.readiness === "ready-by-species"
+    ? `<div class="warn" style="font-size:13px">This reef's pooled season mixes many species. Picking one of the species below gives a much better aim.</div>` : "";
+  drawSpecies(); aim(); setLead();
+}
+function drawSpecies() {
+  const f = $("sp-filter").value.trim().toLowerCase();
+  const all = (LOC.species || []).filter((s) => !f || s.species.toLowerCase().includes(f));
+  const show = f ? all : all.slice(0, 40);
+  $("sp-none").checked = !SP && !$("genus").value;
+  $("sp").innerHTML = "<tr><th></th><th>species</th><th>spawning nights on record</th><th>season</th><th>nights after full moon</th><th>data</th></tr>" +
+    show.map((s) => `<tr class="sp-row${s.species === SP ? " sel" : ""}"><td><input type="radio" name="sp" value="${esc(s.species)}" ${s.species === SP ? "checked" : ""} aria-label="${esc(s.species)}"></td>
+      <td><i>${esc(s.species)}</i>${s.padded ? ' <span class="pill rec">Recommended</span>' : ""}</td><td>${s.n_nights} <span class="muted">(${esc(s.years)})</span></td>
+      <td>${esc(md(s.season_start))} – ${esc(md(s.season_end))}</td><td>${esc(s.daf_lo)}–${esc(s.daf_hi)}</td>
+      <td class="${s.grade === "thin" ? "warn" : ""}">${esc(s.grade === "thin" ? "thin: widen it" : s.grade)}</td></tr>`).join("");
+  $("sp-more").textContent = all.length > show.length ? `showing ${show.length} of ${all.length}; type in "Find a species" to see the rest` : "";
+  $("sp").querySelectorAll("input[name=sp]").forEach((e) => e.onchange = () => {
+    SP = e.value; $("genus").value = "";
+    const s = LOC.species.find((x) => x.species === SP);
+    $("pad-s").value = s.padded ? 0 : 3; $("pad-m").value = s.padded ? 0 : 1;
+    drawSpecies(); aim(); setLead();
+  });
+}
+$("sp-none").onchange = () => { SP = null; $("genus").value = ""; $("pad-s").value = 0; $("pad-m").value = 0; drawSpecies(); aim(); setLead(); };
+$("sp-filter").oninput = () => LOC && drawSpecies();
+$("genus").onchange = () => { if ($("genus").value) { SP = null; drawSpecies(); } aim(); setLead(); };
+["pad-s", "pad-m"].forEach((id) => $(id).oninput = () => { aim(); setLead(); });
+function target() {
+  if (SP) return LOC.species.find((x) => x.species === SP);
+  const g = LOC.genera.find((x) => x.genus === $("genus").value);
+  return g || LOC;
+}
+function aimName() { return SP ? `<i>${esc(SP)}</i>` : $("genus").value ? `genus ${esc($("genus").value)}` : "the whole reef"; }
+function aim() {
+  const t = target();
+  const pads = (+$("pad-s").value || +$("pad-m").value) ? `, widened by ±${esc($("pad-s").value)} days (season) and ±${esc($("pad-m").value)} days (moon)` : "";
+  const thin = t.grade === "thin" ? ' <span class="warn">This species has very few records: widen the window (Advanced).</span>' : "";
+  $("aim").innerHTML = `Aiming at ${aimName()}: on the reef it spawns ${esc(md(t.season_start))} – ${esc(md(t.season_end))}, ${esc(t.daf_lo)}–${esc(t.daf_hi)} nights after the full moon${pads}.${thin}`;
+}
+function seasonDays(a, b) {
+  const d = (s) => { const [m, dd] = s.split("-").map(Number); return Math.round((Date.UTC(2027, m - 1, dd) - Date.UTC(2027, 0, 1)) / 864e5); };
+  return ((d(b) - d(a)) % 365 + 365) % 365 + 1;
+}
+function recLead() {
+  const t = target();
+  return Math.max(0, 365 - seasonDays(t.season_start, t.season_end) - 2 * (+$("pad-s").value || 0));
+}
+function setLead() {
+  if (!LOC || $("mode").value !== "lead") return;
+  const m = recLead();
+  $("mode-val").value = m;
+  leadWhy();
+}
+function leadWhy() {
+  if ($("mode").value !== "lead") { $("lead-why").textContent = ""; return; }
+  const m = recLead(), v = +$("mode-val").value;
+  $("mode-label").textContent = "Days until the spawning season (0–365)";
+  $("lead-why").innerHTML = `Recommended: <b>${m}</b> days, a full year out of season first.` +
+    (v < 0.8 * m ? ` <span class="warn">${v} days is much shorter: the first season will only be a practice run.</span>` : "") +
+    (v > m ? ` <span class="warn">More than ${m} days puts the start inside the season itself (the reef year repeats).</span>` : "");
+}
+$("mode-val").oninput = leadWhy;
+$("lead-rec").onclick = () => { $("mode").value = "lead"; modeChanged(); };
+function modeChanged() {
+  const m = $("mode").value;
+  $("mode-label").textContent = {lead: "Days until the spawning season (0–365)", cue_date: "Reef date to play on the first day (MM-DD)", offset: "Offset in days (tank date − reef date)"}[m];
+  $("mode-val").value = {lead: "300", cue_date: "01-01", offset: "0"}[m];
+  $("lead-rec").hidden = false;
+  setLead(); leadWhy();
+}
+$("mode").onchange = modeChanged;
+
+function browserTz() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } }
+function tzWhy() {
+  const mine = browserTz(), v = $("ts-tz").value.trim();
+  $("tz-why").innerHTML = mine && v && mine !== v ? `<span class="warn">This computer is set to ${esc(mine)}, but the tank's time zone says ${esc(v)}. Check which one is right for the tank.</span>` : (mine ? `Matches this computer (${esc(mine)}).` : "");
+}
+$("ts-tz").oninput = tzWhy;
+$("ts-mine").onclick = () => { const m = browserTz(); if (m) { $("ts-tz").value = m; tzWhy(); } };
+function bandC() {
+  const lo = +$("band-lo").value, hi = +$("band-hi").value, st = +$("step").value;
+  $("band-c").textContent = [lo, hi, st].some(isNaN) ? "" : `In °C: ${r1(fToC(lo), 2)} to ${r1(fToC(hi), 2)}, at most ${r1(st * 5 / 9, 3)} per day.`;
+}
+["band-lo", "band-hi", "step"].forEach((id) => $(id).oninput = bandC);
+/* °F inputs back to the °C the backend takes; untouched fields send the exact current value */
+function limitsC() {
+  const lo = +$("band-lo").value, hi = +$("band-hi").value, st = +$("step").value;
+  if ([lo, hi, st].some((v) => isNaN(v) || $("band-lo").value === "")) throw new Error("type a number in each temperature limit");
+  if (!(lo >= 68 && hi <= 87.8 && lo < hi)) throw new Error("the limits must be between 68 °F and 87.8 °F, the low one below the high one");
+  if (!(st >= 0.018 && st <= 0.9)) throw new Error("the largest change per day must be between 0.02 °F and 0.9 °F");
+  const same = (id, c, n) => $(id).value === r1(id === "step" ? c * 9 / 5 : cToF(c), n);
+  return {
+    band: [same("band-lo", TS.safety_band_c[0], 1) ? TS.safety_band_c[0] : +r1(fToC(lo), 2),
+           same("band-hi", TS.safety_band_c[1], 1) ? TS.safety_band_c[1] : +r1(fToC(hi), 2)],
+    step: same("step", TS.max_step_c_per_day, 2) ? TS.max_step_c_per_day : +r1(st * 5 / 9, 3),
+  };
+}
+function choice() {
+  const t = document.querySelector("input[name=temp]:checked");
+  const lim = limitsC();
+  return {locale: LOC.id, temp: t && t.value, species: SP, genus: SP ? null : ($("genus").value || null),
+          pad_season_days: +$("pad-s").value || 0, pad_moon_days: +$("pad-m").value || 0,
+          start: $("start").value, start_mode: $("mode").value, start_value: $("mode-val").value, days: +$("days").value,
+          tank_site: {lat: $("ts-lat").value, lon: $("ts-lon").value, tz: $("ts-tz").value.trim()},
+          safety_band_c: lim.band, max_step_c_per_day: lim.step};
+}
+
+function goW(i) {
+  W = Math.max(0, Math.min(WTITLES.length - 1, i));
+  document.querySelectorAll(".wstep").forEach((e) => e.classList.toggle("on", +e.dataset.w === W));
+  $("w-title").textContent = `Step 1 · Spawning calendar: ${WTITLES[W]}`;
+  $("w-count").textContent = `question ${W + 1} of ${WTITLES.length}`;
+  $("w-bar").innerHTML = WTITLES.map((_, k) => `<span class="${k < W ? "done" : k === W ? "now" : ""}" title="${esc(WTITLES[k])}"></span>`).join("");
+  $("w-back").disabled = W === 0;
+  $("w-next").hidden = W === WTITLES.length - 1;
+  $("w-next").textContent = W === 4 ? "Next: build the preview →" : W === 5 ? "Next: confirm →" : "Next →";
+  say("w-msg", "");
+  if (W === 5) ensurePreview();
+  if (W === 6) drawConfirm();
+  window.scrollTo(0, 0);
+}
+$("w-back").onclick = () => goW(W - 1);
+$("w-next").onclick = () => {
+  if (W === 0 && !LOC) return say("w-msg", "pick a reef first", "warn");
+  if (W === 2 && !document.querySelector("input[name=temp]:checked")) return say("w-msg", "pick a temperature curve", "warn");
+  if (W === 3 && !$("start").value) return say("w-msg", "pick a first day", "warn");
+  if (W === 4) { try { limitsC(); } catch (e) { return say("w-msg", e.message, "bad"); } if (!$("ts-tz").value.trim()) return say("w-msg", "type a time zone", "warn"); }
+  if (W === 5 && !(LAST && LAST.key === keyOf())) return say("w-msg", "wait for the preview to finish", "warn");
+  goW(W + 1);
+};
+function keyOf() { try { return JSON.stringify(choice()); } catch (e) { return null; } }
+
+let BUILDING = false;
+async function ensurePreview(force) {
+  const key = keyOf();
+  if (!key) { say("msg-preview", "a limit on the previous screen is not valid", "bad"); return; }
+  if (!force && LAST && LAST.key === key) return;
+  if (BUILDING) return;
+  BUILDING = true;
+  $("pv").hidden = true; $("btn-preview").disabled = true;
+  say("msg-preview", "Building your calendar: every day of the next two years. This takes about 15 to 20 seconds…");
+  try { const c = JSON.parse(key); const p = await api("/api/calendar/preview", c); LAST = {choice: c, p, key}; showPreview(p); say("msg-preview", ""); }
+  catch (e) { say("msg-preview", "Could not build it: " + e.message + ". Go back and change the answer it names.", "bad"); }
+  $("btn-preview").disabled = false; BUILDING = false;
+}
+$("btn-preview").onclick = () => ensurePreview(true);
+
+function plainWarn(w) {
+  let m;
+  if ((m = w.match(/^(\d+) days are clamped to the \[([\d.]+), ([\d.]+)\] C band$/)))
+    return `On ${m[1]} days the reef is colder or warmer than your limits (${tf(m[2])} to ${tf(m[3])}); on those days the tank holds at the limit instead.`;
+  if ((m = w.match(/^first watch night is (\d+) days after the start \(a repeating year allows up to about (\d+)\)/)))
+    return `The first watch night comes only ${m[1]} days after the start (a full year out of season would be about ${m[2]}). The animals will not have lived through a full reef year first, so treat that first season as a practice run.`;
+  if (w === "no watch night in this calendar") return "This calendar has no watch nights at all. Make it longer (Advanced, question 4) or start it differently.";
+  if ((m = w.match(/^a lead over (\d+) days starts the tank inside/)))
+    return `More than ${m[1]} days until the season puts the start inside the season itself (the reef year repeats). Use ${m[1]} or fewer.`;
+  if ((m = w.match(/^locale is ([\w-]+): (.*)$/))) return `This reef's data is limited (${READY[m[1]] || m[1]}): ${m[2]}.`;
+  return w;
+}
+function showPreview(p) {
+  $("pv").hidden = false; $("pv-ok").checked = false; $("btn-apply").disabled = true; say("msg-apply", "");
+  const s = p.summary, b = p.basis;
+  const fw = s.first_watch, seasons = p.watch_seasons;
+  $("pv-plain").innerHTML = [
+    `Your programme runs from <b>${esc(day(s.first_date))}</b> to <b>${esc(day(s.last_date))}</b> (${s.rows} days). On day 1 the tank plays the reef's <b>${esc(md(s.cue_date_at_start))}</b>.`,
+    `Aiming at ${aimName()} on <b>${esc(b.locale_name)}</b>.`,
+    `<b>Lights:</b> the day is between ${r1(s.photoperiod_min[0] / 60)} and ${r1(s.photoperiod_min[1] / 60)} hours long through the year, and the moon lamp follows the real moon.`,
+    `<b>Water:</b> between ${esc(tf(s.temp_min_c))} and ${esc(tf(s.temp_max_c))}, never changing more than ${esc(dF(s.max_step_c))} in a day. The first day aims at ${esc(tf(p.series[0].t))}.`,
+    fw ? `<b>Watch nights:</b> ${s.watch_nights} nights in ${seasons.length} group${seasons.length === 1 ? "" : "s"}. The first is <b>${esc(day(fw))}</b>, in ${daysUntil(fw)} days.` : `<b class="warn">No watch nights in this calendar.</b>`,
+  ].map((x) => `<li>${x}</li>`).join("");
+  $("pv-warn").innerHTML = p.warnings.length ? `<ul class="w warn">${p.warnings.map((w) => `<li title="${esc(w)}">${esc(plainWarn(w))}</li>`).join("")}</ul>` : "";
+  $("pv-sum").innerHTML = kv({range: `${s.first_date} to ${s.last_date} (${s.rows} days)`, target: b.window.from,
+    "cue date on day 1": s.cue_date_at_start, "offset (d)": s.offset_days,
+    "target": `${tf(s.temp_min_c)} to ${tf(s.temp_max_c)} (${s.temp_min_c} to ${s.temp_max_c} °C; ${s.clamped_days} days clamped, max step ${s.max_step_c} °C)`,
+    "photoperiod (min)": s.photoperiod_min.join(" to "), "watch nights": `${s.watch_nights}, first ${s.first_watch || "none"}`,
+    "longest out-of-season lead": `${s.max_lead_days} d`, "temperature source": p.params.sst_fit.source || "",
+    "watch window": `${p.params.watch.season_start}–${p.params.watch.season_end}, ${p.params.watch.days_after_full_min} to ${p.params.watch.days_after_full_max} d after full`,
+    "params draft": p.params_draft});
+  $("pv-watch").innerHTML = "<tr><th>tank dates</th><th>in</th><th>reef date</th><th>nights</th><th>water target</th></tr>" +
+    seasons.map((w) => `<tr><td>${esc(day(w.from))} – ${esc(day(w.to))}</td><td>${daysUntil(w.from)} days</td><td>${esc(md(w.cue_from))}</td><td>${w.n}</td><td>${esc(tfc(w.temp_c))}</td></tr>`).join("");
+  const cols = Object.keys(p.first_rows[0] || {});
+  $("pv-rows").innerHTML = "<tr>" + cols.map((c) => `<th>${esc(c)}</th>`).join("") + "</tr>" +
+    p.first_rows.map((r) => "<tr>" + cols.map((c) => `<td>${esc(c === "target_c" ? `${tf(r[c])} (${r[c]})` : r[c])}</td>`).join("") + "</tr>").join("");
+  chart(p.series);
+}
+function chart(ser) {
+  const W_ = 1000, H = 190, pad = 24, n = ser.length;
+  const F = ser.map((d) => ({t: cToF(d.t), raw: cToF(d.raw), w: d.w, d: d.d}));
+  const vals = F.flatMap((d) => [d.t, d.raw]);
+  const lo = Math.floor(Math.min(...vals)), hi = Math.ceil(Math.max(...vals));
+  const x = (i) => pad + (W_ - 2 * pad) * i / Math.max(1, n - 1);
+  const y = (v) => H - pad - (H - 2 * pad) * (v - lo) / Math.max(0.1, hi - lo);
+  const line = (k) => F.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(d[k]).toFixed(1)}`).join("");
+  const stepF = hi - lo > 8 ? 2 : 1;
+  let g = "";
+  for (let v = lo; v <= hi; v += stepF) g += `<line x1="${pad}" x2="${W_ - pad}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="2" y="${y(v) + 4}">${v}°</text>`;
+  F.forEach((d, i) => { if (d.d.endsWith("-01") && d.d.slice(5, 7) % 3 === 1) g += `<text x="${x(i)}" y="${H - 6}">${MON[+d.d.slice(5, 7) - 1]} ${d.d.slice(0, 4)}</text>`; });
+  F.forEach((d, i) => { if (d.w) g += `<line x1="${x(i)}" x2="${x(i)}" y1="${pad - 8}" y2="${pad + 4}" stroke="var(--chart-w)" stroke-width="2"/>`; });
+  $("chart").innerHTML = g + `<path d="${line("raw")}" fill="none" stroke="var(--chart-raw)" stroke-width="1.5"/><path d="${line("t")}" fill="none" stroke="var(--chart-t)" stroke-width="2"/>`;
+}
+function drawConfirm() {
+  $("cf-done").hidden = true; $("cf-form").hidden = false; say("msg-apply", "");
+  if (!LAST) { $("cf-what").innerHTML = '<p class="warn">Build the preview first (previous screen).</p>'; return; }
+  const s = LAST.p.summary, c = LAST.choice, t = OV && OV.today, day1 = LAST.p.series[0].t;
+  const jump = t && t.target_c != null ? day1 - t.target_c : null;
+  const li = [];
+  if (OV && OV.staging) li.push(`<b>Practice mode:</b> all of this happens in the practice copy only. The running tank keeps its current calendar.`);
+  li.push(`The calendar for ${esc(day(s.first_date))} – ${esc(day(s.last_date))} becomes the one the controller follows, from its next check.`);
+  li.push(`<b>Lights</b> switch on and off to the new day lengths and moon from then on.`);
+  li.push(`<b>Water:</b> the heater target becomes ${esc(tf(day1))} today, then moves at most ${esc(dF(s.max_step_c))} a day, never outside ${esc(tf(c.safety_band_c[0]))} – ${esc(tf(c.safety_band_c[1]))}.`);
+  if (jump != null) li.push(Math.abs(jump) >= 0.5
+    ? `<span class="warn">Today's target in the calendar you follow now is ${esc(tf(t.target_c))}, so the target changes by ${esc(dF(jump, 1))} at once. There is no gradual hand-over between two calendars.</span>`
+    : `Today's target now is ${esc(tf(t.target_c))}, so the water target barely changes.`);
+  li.push(`The first watch night is ${s.first_watch ? `<b>${esc(day(s.first_watch))}</b>` : "none"}. The tracking page counts down to it.`);
+  li.push(`Your current calendar and settings are backed up beside themselves first, so nothing is lost. You can make a new calendar at any time.`);
+  $("cf-what").innerHTML = `<p><b>What happens when you press Confirm:</b></p><ul class="plain">${li.map((x) => `<li>${x}</li>`).join("")}</ul>` +
+    (jump != null && Math.abs(jump) >= 0.5 ? `<div class="ph">OWNER DECISION (placeholder): whether a new calendar should ease from today's target instead of switching at once. Until decided, check a large change by hand.</div>` : "") +
+    (OV && OV.staging ? `<div class="ph">OWNER DECISION (placeholder): how a calendar made in practice mode is moved to the live tank is not decided yet.</div>` : "");
+}
+$("pv-ok").onchange = () => $("btn-apply").disabled = !$("pv-ok").checked;
+$("btn-apply").onclick = async () => {
+  if (!LAST) return;
+  $("btn-apply").disabled = true; say("msg-apply", "writing…");
+  try {
+    const r = await api("/api/calendar/apply", {choice: LAST.choice, confirm: true});
+    say("msg-apply", ""); $("cf-form").hidden = true; $("cf-done").hidden = false;
+    $("cf-file").textContent = OV && OV.staging
+      ? `The practice copy's calendar is set (${r.file}). The running tank did not change.`
+      : `Your tank's calendar is set (${r.file}). The controller follows it from its next check.`;
+    APPLIED = true; LAST = null; loadOverview();
+  } catch (e) { say("msg-apply", e.message, "bad"); $("btn-apply").disabled = !$("pv-ok").checked; }
+};
+
+// ---------------- 2 ----------------
+let ROWS = [], FNS = [];
+async function loadDev() {
+  await loadOverview();
+  const s = await api("/api/plugs");
+  FNS = s.functions;
+  $("dev-state").textContent = `${s.devices.length} devices in devices.json` + (s.devices_file ? "" : " (none yet: do steps 1 and 2)") +
+    (s.record.cloud_fetch_utc ? ` · keys fetched ${s.record.cloud_fetch_utc}` : "") + (s.record.array_saved_utc ? ` · plugs saved ${s.record.array_saved_utc}` : "");
+  $("g-cloud").classList.toggle("done", !!s.devices.length);
+  $("g-name").classList.toggle("done", !!s.record.array_saved_utc);
+  $("fn-legend").innerHTML = FNS.map((f) => `<b>${esc(f.label)}</b>: ${esc(f.what)}`).join("<br>");
+  ROWS = s.suggested; drawArray();
+}
+function drawArray() {
+  $("arr").innerHTML = ROWS.length ? "<tr><th>name</th><th>device in Smart Life</th><th>kind</th><th>address</th><th>function</th></tr>" +
+    ROWS.map((r, i) => `<tr><td><input data-i="${i}" data-k="name" value="${esc(r.name)}" size="12"></td>
+      <td>${esc(r._device_name || "—")}${r._existing ? "" : ' <span class="pill warn">new</span>'}</td>
+      <td>${esc(r.driver.includes("dimmer") ? `dimmer, gang ${r.gang}` : r.driver.startsWith("fake") ? "simulated" : "plug")}</td>
+      <td><input data-i="${i}" data-k="ip" value="${esc(r.ip || "")}" size="13"></td>
+      <td><select data-i="${i}" data-k="role">${FNS.map((f) => `<option value="${f.id}" ${f.id === r.role ? "selected" : ""}>${esc(f.label)}</option>`).join("")}</select></td></tr>`).join("")
+    : `<tr><td class="muted">No plugs yet. Fetch the devices and keys above first; each plug then gets a row here.</td></tr>`;
+  $("arr").querySelectorAll("[data-k]").forEach((e) => e.onchange = () => { ROWS[+e.dataset.i][e.dataset.k] = e.value; });
+}
+$("btn-cloud").onclick = async () => {
+  say("msg-cloud", "asking the Tuya cloud…");
+  try {
+    const r = await api("/api/plugs/cloud", {region: $("cl-region").value, api_key: $("cl-key").value, api_secret: $("cl-secret").value,
+      device_id: $("cl-dev").value, remember: $("cl-remember").checked});
+    $("cl-secret").value = ""; say("msg-cloud", `${r.count} devices and keys saved`, "ok"); loadDev();
+  } catch (e) { say("msg-cloud", e.message, "bad"); }
+};
+$("btn-scan").onclick = async () => {
+  say("msg-scan", "listening (up to 8 s)…");
+  try {
+    const r = await api("/api/plugs/scan", {timeout_s: 8});
+    say("msg-scan", r.ok ? (r.blind ? r.note : `heard ${Object.keys(r.found).length} plugs; addresses filled in`) : r.why, r.blind || !r.ok ? "warn" : "ok");
+    if (r.ok && !r.blind) loadDev();
+  } catch (e) { say("msg-scan", e.message, "bad"); }
+};
+$("btn-save").onclick = async () => {
+  try {
+    const r = await api("/api/plugs/save", {plugs: ROWS, ack_role_changes: $("arr-ack").checked});
+    if (!r.ok) say("msg-arr", `${r.why}: ${r.needs_ack.join("; ")}`, "warn");
+    else { say("msg-arr", `saved ${r.plugs} plugs` + (r.role_changes.length ? ` (changed: ${r.role_changes.join("; ")})` : ""), "ok"); loadDev(); }
+  } catch (e) { say("msg-arr", e.message, "bad"); }
+};
+$("btn-health").onclick = async () => {
+  say("msg-hl", "asking each plug once…");
+  try {
+    const rows = await api("/api/plugs/health", {});
+    $("hl").innerHTML = "<tr><th>plug</th><th>function</th><th>answers</th><th>on</th><th>countdown</th><th>what to do</th></tr>" +
+      rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc((FNS.find((f) => f.id === r.role) || {}).label || r.role)}</td>
+        <td class="${r.ok ? "ok" : "bad"}">${r.ok ? "yes" : "no"}</td><td>${esc(fmt(r.on))}</td><td>${esc(fmt(r.countdown_s))}</td>
+        <td>${esc(r.hint || r.detail || "")} ${esc((r.warnings || []).join(" "))}</td></tr>`).join("");
+    say("msg-hl", ""); $("g-check").classList.toggle("done", rows.every((r) => r.ok));
+  } catch (e) { say("msg-hl", e.message, "bad"); }
+};
+
+// ---------------- 3 ----------------
+function guide(el, steps, onTick) {
+  el.innerHTML = steps.map((c) => `<div class="gstep${c.done ? " done" : ""}"><h3>${esc(c.title || c.text)}</h3>
+    <ol>${(c.steps || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+    <label style="display:inline;color:inherit"><input type="checkbox" data-c="${esc(c.id)}" ${c.done ? "checked" : ""}> done
+    ${c.done ? `<span class="muted">(${esc(c.done)})</span>` : ""}</label></div>`).join("");
+  el.querySelectorAll("[data-c]").forEach((e) => e.onchange = () => onTick(e.dataset.c, e.checked));
+}
+function age(s) { return s == null ? "–" : s < 120 ? `${Math.round(s)} s ago` : s < 7200 ? `${Math.round(s / 60)} min ago` : `${r1(s / 3600)} h ago`; }
+async function loadItc() {
+  await loadOverview();
+  const s = await api("/api/itc");
+  const last = s.last || {};
+  $("itc-st").innerHTML = kvh([
+    ["Reading the Inkbird", s.feed_ok ? '<span class="ok">yes, readings are fresh</span>' : '<span class="warn">no fresh reading yet</span>'],
+    ["Water now", last.ts ? `${esc(tfc(last.temp_c))}, ${esc(age(s.reading_age_s))}` : "no reading yet"],
+    ["Inkbird set points", last.ts ? `T1 ${esc(last.t1_f)} °F · T2 ${esc(last.t2_f)} °F` : "–"],
+    ["Inkbird service", s.service_age_s == null ? "not seen" : `last loop ${esc(age(s.service_age_s))}`],
+    ["Last set-point write", s.service && s.service.apply ? esc(`${s.service.apply.status} (seq ${s.service.apply.seq})`) : "—"],
+    ["Writes stopped (HALT file)", s.halt_file ? '<span class="warn">yes</span>' : "no"],
+    ["Containers", esc(s.containers ? Object.entries(s.containers).map(([k, v]) => `${k}: ${v}`).join(" · ") : "Docker not visible from here; check on the host with docker ps")],
+    ["Feed file", `<code>${esc(s.feed)}</code>`]]);
+  guide($("itc-list"), s.checklist, async (id, done) => { await api("/api/itc/check", {item: id, done}); loadItc(); });
+}
+
+// ---------------- 4 ----------------
+async function loadTg() {
+  await loadOverview();
+  const s = await api("/api/telegram");
+  const yn = (b) => b ? "set" : "not set";
+  $("tg-st").innerHTML = kv({"bot token (TELEGRAM_BOT_TOKEN)": yn(s.token_set), "chat id (TELEGRAM_CHAT_ID)": yn(s.chat_set),
+    "dead-man ping (TANK_DEADMAN_URL)": yn(s.deadman_set), "daily feed bot": yn(s.feed_set),
+    "channels that will get alerts": s.channels.join(", ") || "none", "last test": s.last_test ? `${s.last_test.ts}: ${s.last_test.delivered ? "delivered" : "not delivered"}` : "—",
+    ...(s.note ? {note: s.note} : {})});
+  $("btn-chats").disabled = !s.token_set; $("btn-tgtest").disabled = !(s.token_set && s.chat_set);
+  guide($("tg-list"), s.steps, async (id, done) => { await api("/api/telegram/check", {item: id, done}); loadTg(); });
+}
+$("btn-chats").onclick = async () => {
+  try {
+    const rows = await api("/api/telegram/chats", {});
+    $("tg-chats").innerHTML = rows.length ? "<tr><th>chat id</th><th>type</th><th>name</th></tr>" + rows.map((r) => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.type)}</td><td>${esc(r.name)}</td></tr>`).join("") : "";
+    say("msg-tg", rows.length ? "put the id in .env as TELEGRAM_CHAT_ID" : "no chats yet: send your bot a message first", rows.length ? "ok" : "warn");
+  } catch (e) { say("msg-tg", e.message, "bad"); }
+};
+$("btn-tgtest").onclick = async () => {
+  try { const r = await api("/api/telegram/test", {}); say("msg-tg", r.ok ? "sent: check your phone" : "not delivered (see the tank log)", r.ok ? "ok" : "bad"); loadTg(); }
+  catch (e) { say("msg-tg", e.message, "bad"); }
+};
+
+// ---------------- 5 ----------------
+/* decisions stored in °C: shown and typed in °F here, converted back on Change */
+const ABS_C = new Set(["alarm_band", "cooling_setpoint", "band"]);
+const DELTA_C = new Set(["cooling_above", "probe_offset", "step", "hourly", "lifeguard_margin"]);
+let decFilter = "todo";
+function convDec(id, v, toF) {
+  const f = ABS_C.has(id) ? (toF ? cToF : fToC) : DELTA_C.has(id) ? (toF ? (x) => x * 9 / 5 : (x) => x * 5 / 9) : null;
+  if (!f) return v;
+  const one = (x) => typeof x === "number" ? +r1(f(x), toF ? 2 : 3) : x;
+  return Array.isArray(v) ? v.map(one) : one(v);
+}
+function decLabel(r) { return (ABS_C.has(r.id) || DELTA_C.has(r.id)) ? r.label.replace(/\(C\b/, "(°F") : r.label; }
+let PO = {};
+$("dec-filter").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button"); if (!b) return;
+  decFilter = b.dataset.f; for (const x of $("dec-filter").children) x.classList.toggle("on", x === b);
+  loadDec();
+});
+async function loadDec() {
+  await loadOverview();
+  const rows = await api("/api/decisions");
+  const crit = rows.filter((r) => r.tier === "critical"), fn = rows.filter((r) => r.tier === "function"), oth = rows.filter((r) => r.tier === "other");
+  const count = (rs) => `${rs.filter((r) => r.confirmed).length} of ${rs.length} confirmed`;
+  $("crit-count").textContent = count(crit); $("fn-count").textContent = count(fn); $("oth-count").textContent = count(oth);
+  $("dec-crit").innerHTML = table(crit, true);
+  // per plug: its critical rows are listed above; the card shows the rest plus power-on
+  const plugs = [...new Set(rows.filter((r) => r.plug).map((r) => r.plug))];
+  $("dec-fn").innerHTML = plugs.length ? plugs.map((p) => {
+    const mine = rows.filter((r) => r.plug === p || (r.group.endsWith(": " + p)));
+    const g = mine[0].group;
+    return `<h3>${esc(g)}</h3>${poLine(p)}${table(mine.filter((r) => r.tier !== "critical"), false)}
+      ${mine.some((r) => r.tier === "critical") ? `<div class="why">Critical items for ${esc(p)} are in the section above.</div>` : ""}`;
+  }).join("") : `<div class="warn">No plugs have a function yet. Do step 2 first: pair, name, give each a function.</div>`;
+  $("dec-oth").innerHTML = [...new Set(oth.map((r) => r.group))].map((g) => `<h3>${esc(g)}</h3>${table(oth.filter((r) => r.group === g), false)}`).join("");
+  document.querySelectorAll("#dec [data-act]").forEach((b) => b.onclick = () => decAct(b.dataset.id, b.dataset.act));
+  document.querySelectorAll("#dec [data-set]").forEach((b) => b.onclick = () => setPo(b.dataset.set));
+}
+function table(all, showGroup) {
+  if (!all.length) return "";
+  const rs = decFilter === "todo" ? all.filter((r) => !r.confirmed) : all;
+  if (!rs.length) return `<div class="ok" style="margin:6px 0">✓ all ${all.length} confirmed</div>`;
+  return `<div class="scroll"><table class="tbl"><tr><th>decision</th><th>value</th><th>status</th><th></th></tr>${rs.map((r) => decRow(r, showGroup)).join("")}</table></div>`;
+}
+function poLine(p) {
+  const r = PO[p];
+  if (!r) return `<div class="why">Power-on state: click "Read power-on states".</div>`;
+  if (r.dp == null || !r.ok) return `<div class="why">Power-on state: ${esc(r.why || "unreadable")}</div>`;
+  return `<div class="row" style="margin:4px 0">Power-on state now: <b class="${r.matches === false ? "warn" : r.matches ? "ok" : ""}">${esc(r.value)}</b>
+    (proposed ${esc(r.want || "leave as is")})
+    <select data-n="${esc(p)}">${["power_off", "power_on", "last"].map((v) => `<option ${v === (r.want || r.value) ? "selected" : ""}>${v}</option>`).join("")}</select>
+    <button class="sec" data-set="${esc(p)}">Write</button></div>`;
+}
+$("btn-po").onclick = async () => {
+  say("msg-po", "reading…");
+  try { const rows = await api("/api/plugs/power_on", {}); PO = Object.fromEntries(rows.map((r) => [r.name, r])); say("msg-po", ""); loadDec(); }
+  catch (e) { say("msg-po", e.message, "bad"); }
+};
+async function setPo(name) {
+  const sel = [...document.querySelectorAll("select[data-n]")].find((s) => s.dataset.n === name);
+  const typed = prompt(`Write power-on state "${sel.value}" to ${name}? Type the plug name to confirm.`);
+  if (typed === null) return;
+  try {
+    const r = await api("/api/plugs/power_on/set", {name, value: sel.value, confirm: typed});
+    say("msg-po", `${name}: ${r.before} → ${r.after}` + (r.ok ? "" : " (read-back does not match)"), r.ok ? "ok" : "bad");
+    $("btn-po").click();
+  } catch (e) { say("msg-po", e.message, "bad"); }
+}
+function decRow(r, showGroup) {
+  const status = r.confirmed ? `<span class="ok">confirmed ${esc(r.confirmed)}</span>`
+    : r.type === "check" && r.confirmed_value === false ? `<span class="bad">not done yet</span>`
+    : r.changed_since_confirm ? `<span class="warn">changed since you confirmed (${esc(fmt(convDec(r.id, r.confirmed_value, true)))})</span>`
+    : `<span class="warn">not confirmed</span>`;
+  const shown = convDec(r.id, r.value, true);
+  let act;
+  if (r.type === "check") {
+    act = `<button class="sec" data-act="yes" data-id="${esc(r.id)}">Yes, done</button> <button class="sec" data-act="no" data-id="${esc(r.id)}">Not yet</button>`;
+  } else {
+    act = `<button class="sec" data-act="keep" data-id="${esc(r.id)}">Confirm</button>` +
+      (r.editable ? ` <input data-v="${esc(r.id)}" size="14" value="${esc(typeof shown === "object" && shown !== null ? JSON.stringify(shown) : fmt(shown))}"> <button class="sec" data-act="change" data-id="${esc(r.id)}">Change</button>` : "");
+  }
+  const val = r.type === "check" ? (r.confirmed_value === undefined || r.confirmed_value === null ? "—" : r.confirmed_value ? "yes" : "no")
+    : fmt(shown) + ((ABS_C.has(r.id) || DELTA_C.has(r.id)) && r.value != null ? ` °F` : "");
+  return `<tr><td><b>${esc(decLabel(r))}</b>${showGroup ? ` <span class="pill muted">${esc(r.group)}</span>` : ""}<div class="why" title="${esc(r.source || "")}">${esc(r.why)}</div></td>
+    <td>${esc(val)}${(ABS_C.has(r.id) || DELTA_C.has(r.id)) && r.value != null ? `<div class="why">${esc(fmt(r.value))} °C</div>` : ""}</td><td>${status}</td><td>${act}</td></tr>`;
+}
+async function decAct(id, act) {
+  const body = {id};
+  if (act === "change") {
+    let raw = [...document.querySelectorAll("[data-v]")].find((e) => e.dataset.v === id).value;
+    if (ABS_C.has(id) || DELTA_C.has(id)) {
+      // typed in °F: numbers (or a JSON list of numbers) go back as °C; anything else as typed
+      let v; try { v = JSON.parse(raw); } catch (e) { v = raw; }
+      if (typeof v === "string" && /^\s*-?[\d.]+(\s*,\s*-?[\d.]+)+\s*$/.test(v)) v = v.split(",").map(Number);   // "73, 84"
+      if (typeof v === "number" || (Array.isArray(v) && v.every((x) => typeof x === "number"))) raw = JSON.stringify(convDec(id, v, false));
+    }
+    body.change = true; body.value = raw;
+  }
+  if (act === "yes" || act === "no") body.answer = act === "yes";
+  try { await api("/api/decisions/confirm", body); loadDec(); } catch (e) { alert(e.message); }
+}
+
+/* first load: returning users land on home ("you're set up"), new users on the welcome */
+(async () => {
+  try { LINKS = await api("/api/links"); } catch (e) { /* older server: defaults */ }
+  const want = (location.hash || "").slice(1);
+  showTab(LOADERS[want] ? want : "home");
+})();
+window.addEventListener("hashchange", () => { const w = location.hash.slice(1); if (LOADERS[w]) showTab(w); });
+</script>
+</body>
+</html>

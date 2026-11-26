@@ -1,0 +1,25 @@
+{
+  "_note": "Plug states for the sandbox (setup_web.py scenario NAME --to staging/sandbox). Each scenario sets FakePlug / FakeDimmerPlug options on the named plug (by role, so it works with any seeded array) and may add extra fakes. Options: ok (false = offline), stuck (command accepted, state unchanged), fail_set (command raises), on, power_w, expect_w, revert_s (countdown armed after OFF), level. Restart sandbox-tank after switching: it loads the array at start.",
+  "scenarios": {
+    "healthy": {"desc": "every fake answers and obeys", "roles": {}},
+    "white_offline": {"desc": "the white lamp plug drops off Wi-Fi",
+                      "roles": {"white": {"ok": false}}},
+    "white_plus_stuck": {"desc": "the 200 W plug accepts commands but its relay never moves",
+                         "roles": {"white_plus": {"stuck": true}}},
+    "blue_fails": {"desc": "every command to the blue plug errors",
+                   "roles": {"blue": {"fail_set": true}}},
+    "moon_stuck_on": {"desc": "the moon dimmer is on and ignores commands (no backstop on dimmers)",
+                      "roles": {"moon": {"on": true, "level": 0.1, "stuck": true}}},
+    "watts_while_off": {"desc": "white reads OFF but draws power (stuck relay or wrong dp)",
+                        "roles": {"white": {"on": false, "power_w": 18.0}}},
+    "heater_countdown_disarmed": {"desc": "a heater gate plug is OFF with no countdown armed (power cut with power-on OFF)",
+                                  "add": [{"name": "heater-gate", "driver": "fake", "role": "heater",
+                                           "on": false, "revert_s": 0}]},
+    "everything_wrong": {"desc": "all of the above at once",
+                         "roles": {"white": {"ok": false}, "white_plus": {"stuck": true},
+                                   "blue": {"fail_set": true},
+                                   "moon": {"on": true, "level": 0.1, "stuck": true}},
+                         "add": [{"name": "heater-gate", "driver": "fake", "role": "heater",
+                                  "on": false, "revert_s": 0}]}
+  }
+}

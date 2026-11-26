@@ -1,0 +1,77 @@
+{
+  "plugs": [
+    {
+      "name": "plug-10",
+      "driver": "tinytuya",
+      "role": "unassigned",
+      "id": "eb3c8c6d7819eddf4bcvgd",
+      "ip": "192.0.2.202",
+      "version": 3.3
+    },
+    {
+      "name": "plug-9",
+      "driver": "tinytuya",
+      "role": "unassigned",
+      "id": "eb4eddc1864e3170f4izak",
+      "ip": "192.0.2.201",
+      "version": 3.3
+    },
+    {
+      "name": "plug-8",
+      "driver": "tinytuya",
+      "role": "unassigned",
+      "id": "eb16f3f75446b09fc6rd4o",
+      "ip": "192.0.2.200",
+      "version": 3.3
+    },
+    {
+      "name": "dimmer-A1",
+      "driver": "tinytuya_dimmer",
+      "role": "unassigned",
+      "id": "eb9059e0f4dbb03404gzkl",
+      "ip": "192.0.2.203",
+      "gang": 1,
+      "version": 3.5,
+      "_note": "one gang of a double Tuya dimmer switch (category tgkg). Give it a lighting role (white, white_plus, blue or moon) only after the lamp on it is known to be dimmable by a phase-cut dimmer. level_cap (0..1) is a hard ceiling on its brightness."
+    },
+    {
+      "name": "dimmer-A2",
+      "driver": "tinytuya_dimmer",
+      "role": "unassigned",
+      "id": "eb9059e0f4dbb03404gzkl",
+      "ip": "192.0.2.203",
+      "gang": 2,
+      "version": 3.5,
+      "_note": "one gang of a double Tuya dimmer switch (category tgkg). Give it a lighting role (white, white_plus, blue or moon) only after the lamp on it is known to be dimmable by a phase-cut dimmer. level_cap (0..1) is a hard ceiling on its brightness."
+    },
+    {
+      "name": "dimmer-B1",
+      "driver": "tinytuya_dimmer",
+      "role": "unassigned",
+      "id": "eb09fa26e8e860ccdf5os6",
+      "ip": "192.0.2.204",
+      "gang": 1,
+      "version": 3.5,
+      "_note": "one gang of a double Tuya dimmer switch (category tgkg). Give it a lighting role (white, white_plus, blue or moon) only after the lamp on it is known to be dimmable by a phase-cut dimmer. level_cap (0..1) is a hard ceiling on its brightness."
+    },
+    {
+      "name": "dimmer-B2",
+      "driver": "tinytuya_dimmer",
+      "role": "unassigned",
+      "id": "eb09fa26e8e860ccdf5os6",
+      "ip": "192.0.2.204",
+      "gang": 2,
+      "version": 3.5,
+      "_note": "one gang of a double Tuya dimmer switch (category tgkg). Give it a lighting role (white, white_plus, blue or moon) only after the lamp on it is known to be dimmable by a phase-cut dimmer. level_cap (0..1) is a hard ceiling on its brightness."
+    },
+    {
+      "name": "heater-gate",
+      "driver": "tbd",
+      "role": "heater",
+      "_note": "the 4th plug, feeding the Inkbird (or fed by it). Set driver to tinytuya and fill id and ip once paired. revert_dp is model-specific (9 on the KMC 30153, 11 on the SP10): read it from the wizard mapping. Set the plug's power-on state to ON in Smart Life.",
+      "version": 3.3,
+      "power_dp": 1,
+      "revert_dp": 9
+    }
+  ]
+}

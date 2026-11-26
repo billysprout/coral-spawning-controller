@@ -1,0 +1,248 @@
+# Container logs are for diagnosis only and are capped (30 MB per service).
+# Temperature data never lives in them: it is archived in ./data (collector's
+# temp_arc.csv, the guard's reads/ archive), which log rotation cannot touch.
+x-logging: &capped-logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Services. `docker compose up -d` starts the live tank: tank, lifeguard and
+# autoheal. Everything else is behind a profile (android, watch, setup, sandbox,
+services:
+  # The controller: plans each minute from the spawn calendar, switches the plug
+  # array with read-back, reads temperature and lux, alerts. Outputs stay off
+  # until outputs.enabled is set in ./data/tank_config.json. Put plug_array.json
+  # and devices.json (tinytuya wizard) in ./data/tuya/ (all gitignored).
+  tank:
+    build: .
+    image: anemones-tank
+    container_name: tank-controller
+    logging: *capped-logs
+    restart: unless-stopped
+    labels:
+      # autoheal (below) restarts only containers with this label.
+      anemones.autoheal: "true"
+    environment:
+      TANK_DATA: /data
+      TANK_CONFIG: /data/tank_config.json
+      PUSHOVER_TOKEN: ${PUSHOVER_TOKEN:-}
+      PUSHOVER_USER: ${PUSHOVER_USER:-}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TANK_DEADMAN_URL: ${TANK_DEADMAN_URL:-}
+      # Startup hash check of the audited cue data against data/data_manifest.json
+      # (scripts/data_manifest.py). warn: start anyway, log it and raise the
+      # data_manifest_mismatch alert; enforce: refuse to start on a mismatch.
+      DATA_MANIFEST_MODE: ${DATA_MANIFEST_MODE:-warn}
+      # Cue tables fetched on first start when /data has none (scripts/cue_import.py).
+      CUE_TABLES_URL: ${CUE_TABLES_URL:-https://github.com/realfakedoors-idaho/reef-cue-tables}
+      CUE_TABLES_REF: ${CUE_TABLES_REF:-main}
+      CUE_TABLES_AUTO_IMPORT: ${CUE_TABLES_AUTO_IMPORT:-1}
+      # Feed bot (scripts/tank_feed.py). Token kept in .env as reeflive_token.
+      TELEGRAM_FEED_BOT_TOKEN: ${reeflive_token:-}
+      TELEGRAM_FEED_CHAT_ID: ${TELEGRAM_FEED_CHAT_ID:-}
+      # Pi log archive (scripts/pi_log_archive.py); key in ./data/pi_archive.
+      PI_ARCHIVE_HOST: ${PI_ARCHIVE_HOST:-}
+      PI_ARCHIVE_KEEP_DAYS: "14"
+      PI_ARCHIVE_INTERVAL_S: "21600"
+      # Outdoor-air recorder: not in this release (fixed to the first owner's location); keep 0.
+      TANK_AMBIENT: ${TANK_AMBIENT:-0}
+    # Bridge network (was host): the plugs (TCP 6668) and Pi sensors (HTTP 8099, ssh
+    # 22) are reached by IP through NAT; checked from a bridge container first. The
+    # boot-time UDP broadcast scan does not cross the bridge, so plug_scan reports
+    # not_seen and IP drift is not checked (already true on Docker Desktop). The track
+    # page is published on loopback only.
+    ports:
+      - "127.0.0.1:8095:8095"
+    # tank_supervisor.py runs the conductor (with the manifest check first) and
+    # the track page, plus the feed, ambient and Pi archive when they are set up.
+    command: ["python", "-u", "/app/scripts/tank_supervisor.py"]
+    volumes:
+      - ./data:/data
+      - ./data/pi_archive:/state
+      - track-cache:/cache
+    healthcheck:
+      # Healthy while the status file is fresher than 5 minutes (conductor only;
+      # the other children are not in this check).
+      test: ["CMD", "python", "-c",
+             "import os,time,sys; p='/data/tank_status.json'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p)<300 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  # The independent watchdog and safe mode (scripts/lifeguard.py; read its
+  # docstring). Its own container on purpose: it has to outlive a hung or dead
+  # controller, so it shares nothing with the tank service but the data folder
+  # and the image. It checks the controller's heartbeat, reads the thermometers
+  # itself and alerts; with lifeguard.safe_mode.enabled in tank_config.json it
+  # may also put the lights out. `docker compose exec lifeguard python
+  # /app/scripts/lifeguard.py preflight` lists every safety layer.
+  lifeguard:
+    build: .
+    image: anemones-tank
+    container_name: tank-lifeguard
+    logging: *capped-logs
+    restart: unless-stopped
+    labels:
+      anemones.autoheal: "true"
+    environment:
+      TANK_DATA: /data
+      TANK_CONFIG: /data/tank_config.json
+      PUSHOVER_TOKEN: ${PUSHOVER_TOKEN:-}
+      PUSHOVER_USER: ${PUSHOVER_USER:-}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # Read only to report whether the controller's dead-man is set.
+      TANK_DEADMAN_URL: ${TANK_DEADMAN_URL:-}
+      # The lifeguard's own off-site ping (a second healthchecks.io check).
+      LIFEGUARD_DEADMAN_URL: ${LIFEGUARD_DEADMAN_URL:-}
+    command: ["python", "-u", "/app/scripts/lifeguard.py", "loop"]
+    volumes:
+      - ./data:/data
+    healthcheck:
+      # Healthy while it has written its status in the last 5 minutes.
+      test: ["CMD", "python", "-c",
+             "import os,time,sys; p='/data/lifeguard/status.json'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p)<300 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  # Watch-night recorder (scripts/watch_record.py, data/docs/WATCH-CAPTURE.md).
+  # Records the Pi's camera stream during the calendar's watch windows (plus
+  # data/watch/extra_windows.json) to WATCH_VIDEO_DIR (default ./watch-video), 10-minute H.264 segments.
+  # In the `watch` profile until the camera is on the Pi:
+  #   docker compose --profile watch up -d --build watch
+  watch:
+    build:
+      context: .
+      dockerfile: Dockerfile.watch
+    container_name: tank-watch
+    profiles: ["watch"]
+    logging: *capped-logs
+    restart: unless-stopped
+    environment:
+      WATCH_SOURCE: ${WATCH_SOURCE:-http://raspberrypi.local:8090/stream}
+      WATCH_CALENDAR: /data/spawn_calendar_2026-11-01.csv
+      WATCH_STATE: /data/watch
+      WATCH_VIDEO: /video
+    volumes:
+      - ./data:/data
+      - ${WATCH_VIDEO_DIR:-./watch-video}:/video
+
+  # Restarts tank-controller and tank-lifeguard when their healthcheck reports
+  # unhealthy (a hung loop otherwise stays hung; restart: unless-stopped only acts
+  # when the process exits). It only queries containers labelled
+  # anemones.autoheal=true, and only those two carry that label: never set AUTOHEAL_CONTAINER_LABEL=all, which would
+  # restart every unhealthy container on the host (emulator, openclaw, ocbridge).
+  # Timing: tank goes unhealthy after 3 failed 60 s checks of a status file older
+  # than 5 min, so ~8 min after the last tick; its 120 s start_period keeps it in
+  # "starting" (never "unhealthy") after a restart, so there is no kill loop.
+  # Disable: `docker compose stop autoheal` (or remove the label from tank).
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: tank-autoheal
+    logging: *capped-logs
+    restart: unless-stopped
+    network_mode: none
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: anemones.autoheal
+      AUTOHEAL_INTERVAL: "60"
+      AUTOHEAL_START_PERIOD: "300"
+      AUTOHEAL_DEFAULT_STOP_TIMEOUT: "30"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Onboarding page (scripts/setup_web.py): locale and start point, plugs and the
+  # Inkbird VM, fail-safes and settings. STAGING ONLY: it works on ./staging/data
+  # (seed it with `python scripts/setup_web.py seed --from data --to staging/data`,
+  # which turns every plug into a fake), never on ./data, and SETUP_STAGING=1
+  # refuses any write to a real plug. Its own image tag, so building it leaves the
+  # tank image alone; scripts are mounted read-only so page edits need no rebuild.
+  # `docker compose --profile setup up -d --build setup`, then http://127.0.0.1:8098/
+  setup:
+    build: .
+    image: anemones-setup
+    container_name: tank-setup
+    profiles: ["setup"]
+    logging: *capped-logs
+    restart: "no"
+    environment:
+      TANK_DATA: /data
+      TANK_CONFIG: /data/tank_config.json
+      SETUP_STAGING: "1"
+    command: ["python", "-u", "/app/scripts/setup_web.py", "serve",
+              "--host", "0.0.0.0", "--port", "8098"]
+    ports:
+      - "127.0.0.1:8098:8098"
+    volumes:
+      - ./staging/data:/data
+      - ./scripts:/app/scripts:ro
+
+  # SANDBOX: the whole controller on fake plugs and dummy sensors, in one
+  # container, for trying changes and both pages without a tank. Data lives in
+  # ./staging/sandbox (seed it first, see QUICKSTART "Try it with no hardware"):
+  #   python scripts/setup_web.py seed --sandbox --from data --to staging/sandbox
+  #   docker compose --profile sandbox up -d --build sandbox
+  # Setup page http://127.0.0.1:8102/, tracking page http://127.0.0.1:8101/.
+  # tank_supervisor.py (sandbox mode) runs the conductor, the dummy sensors, both
+  # pages and the lifeguard as children. No alert variables are passed, so
+  # nothing reaches Telegram, and SETUP_STAGING=1 refuses writes to a real plug.
+  # A second copy: set SANDBOX_PREFIX, SANDBOX_SETUP_PORT and SANDBOX_TRACK_PORT.
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    image: anemones-sandbox
+    container_name: ${SANDBOX_PREFIX:-sandbox}-tank
+    profiles: ["sandbox"]
+    logging: *capped-logs
+    restart: unless-stopped
+    environment:
+      TANK_DATA: /data
+      TANK_CONFIG: /data/tank_config.json
+      SETUP_STAGING: "1"
+      TANK_SUPERVISOR_MODE: sandbox
+      SANDBOX_SETUP_PORT: ${SANDBOX_SETUP_PORT:-8102}
+      SANDBOX_TRACK_PORT: ${SANDBOX_TRACK_PORT:-8101}
+    command: ["python", "-u", "/app/scripts/tank_supervisor.py"]
+    ports:
+      - "127.0.0.1:${SANDBOX_SETUP_PORT:-8102}:8098"
+      - "127.0.0.1:${SANDBOX_TRACK_PORT:-8101}:8101"
+    volumes:
+      - ./staging/sandbox:/data
+      - ./scripts:/app/scripts:ro
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import os,time,sys; p='/data/tank_status.json'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p)<300 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  # One-shot test run in the sandbox image against the working tree (read-only):
+  #   docker compose --profile test run --rm tests
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    image: anemones-sandbox
+    container_name: tank-tests
+    profiles: ["test"]
+    restart: "no"
+    network_mode: none
+    working_dir: /repo
+    environment:
+      TANK_DATA: /tmp/nodata
+      PYTHONDONTWRITEBYTECODE: "1"
+    command: ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests",
+              "--ignore=tests/soak"]
+    volumes:
+      - .:/repo:ro
+
+volumes:
+  track-cache:

@@ -1,0 +1,12 @@
+{
+  "_note": "STUB for plug brands other than Tuya. Optional second plug file; copy to data/extra_plugs.json. Same schema as plug_array.json; an entry with no driver is the 'tbd' placeholder, which reports 'not selected' and never alarms. Names must not repeat plug_array.json. A driver name that does not exist is reported as an error.",
+  "_for_future_agents": "TERMINOLOGY: in this project 'ecosystem' means a real-world LOCATION whose climate, light and moon data are catalogued (see tank_arcs.py and arc_catalog.json), NOT a plug brand. This file was first named ecosystem_array by mistake and renamed. To support a new plug brand: write a Plug subclass in tank_plugs.py with @register('name') (status() read-only and never raises; set_on() raises PlugError; supports_revert only if the device has a plug-side timer), mock its transport in a test (see tests/test_tank_array.py and tests/test_tank_health.py), then set 'driver' here. Details: pi-contingency-plan.md section 3.6.",
+  "plugs": [
+    {
+      "name": "extra-1",
+      "driver": "tbd",
+      "role": "unassigned",
+      "_note": "Optional per-plug wattage sanity for any driver that reports watts: expect_w [min, max] while ON, off_max_w while OFF (default 1.0). Warnings only."
+    }
+  ]
+}
