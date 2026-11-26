@@ -578,7 +578,8 @@ def current_limits() -> dict:
     """The active params' tank site, band and step: the form's defaults."""
     p = cues.load_params(cues.active_params_path())
     return {**dict(p["tank_site"]), "safety_band_c": list(p["safety_band_c"]),
-            "max_step_c_per_day": p["max_step_c_per_day"]}
+            "max_step_c_per_day": p["max_step_c_per_day"],
+            "noon": solar_noon_check(p["tank_site"], dt.date.today())}
 
 
 def _draft_params_file(data: str, params: dict) -> str:
@@ -591,6 +592,33 @@ def _draft_params_file(data: str, params: dict) -> str:
         with open(path, "wb") as fh:
             fh.write(raw)
     return path
+
+
+NOON_WARN_H = 1.5     # tank solar noon this far from 12:00 local: warn in the preview
+NOON_REFUSE_H = 3.0   # this far: refuse to apply (the longitude cannot be right)
+
+
+def solar_noon_check(site: dict, day: dt.date) -> dict:
+    """Where the tank's solar noon falls on its own clock. Lamp and moon times are
+    placed on the tank's solar noon, which only the longitude sets; the time zone
+    only turns them into clock times. A longitude that does not belong to the time
+    zone (the Okinawa reference default with a US zone, say) shifts the whole day."""
+    from zoneinfo import ZoneInfo
+    import dark_window
+    t = dark_window.solar_noon_utc(day, float(site["lon"])).astimezone(ZoneInfo(site["tz"]))
+    std = ZoneInfo(site["tz"]).utcoffset(dt.datetime(day.year, 1, 15)) or dt.timedelta(0)
+    std2 = ZoneInfo(site["tz"]).utcoffset(dt.datetime(day.year, 7, 15)) or dt.timedelta(0)
+    off_h = min(std, std2).total_seconds() / 3600          # standard (non-summer) offset
+    hours = t.hour + t.minute / 60
+    return {"noon_local": t.strftime("%H:%M"), "off_h": round(hours - 12.0, 2),
+            "suggested_lon": round(off_h * 15.0, 1)}
+
+
+def _noon_message(site: dict, chk: dict) -> str:
+    return (f"with longitude {float(site['lon']):g} the tank's midday falls at {chk['noon_local']} on "
+            f"{site['tz']} clocks, so lights would run {abs(chk['off_h']):.1f} h "
+            f"{'late' if chk['off_h'] > 0 else 'early'}; a longitude near {chk['suggested_lon']:g} "
+            "fits this time zone (set your tank's own, east positive)")
 
 
 def preview(data: str, choice: dict) -> dict:
@@ -623,6 +651,9 @@ def preview(data: str, choice: dict) -> dict:
         warnings.append(f"{clamped} days are clamped to the {p['safety_band_c']} C band")
     if basis["readiness"] != "ready":
         warnings.append(f"locale is {basis['readiness']}: " + "; ".join(basis["caveats"]))
+    noon = solar_noon_check(p["tank_site"], start)
+    if abs(noon["off_h"]) >= NOON_WARN_H:
+        warnings.insert(0, _noon_message(p["tank_site"], noon))
     last = rows[-1]["date"]
     nights = []
     for season in _group_watch(watch):
@@ -676,6 +707,9 @@ def apply_calendar(data: str, choice: dict, confirm: bool) -> dict:
     ppath = _draft_params_file(data, params)
     p = cues.load_params(ppath)
     start = dt.date.fromisoformat(basis["start"])
+    noon = solar_noon_check(p["tank_site"], start)
+    if abs(noon["off_h"]) >= NOON_REFUSE_H:
+        raise SetupError("tank site: " + _noon_message(p["tank_site"], noon))
     rows = spawn_calendar.build_calendar(start, basis["days"], p)
     name = f"spawn_calendar_{start.isoformat()}_{basis['locale']}"
     if basis["temp"] not in ("jaza",):

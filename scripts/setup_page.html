@@ -254,10 +254,10 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
     </div>
     <div class="why" id="tz-why"></div>
     <div class="row">
-      <div><label>Latitude (south is negative)</label><input id="ts-lat" size="8"></div>
-      <div><label>Longitude (west is negative)</label><input id="ts-lon" size="8"></div>
+      <div><label>Longitude (west is negative): sets when your tank's day falls</label><input id="ts-lon" size="8"></div>
+      <div><label>Latitude (south is negative): kept for the record, not used for the lights</label><input id="ts-lat" size="8"></div>
     </div>
-    <div class="ph">OWNER DECISION (placeholder): the shipped default site is the owner's tank (Los Angeles / San Diego). A new user should check it; whether to require one is not decided.</div>
+    <div class="why" id="lon-why"></div>
     <h3>Temperature safety limits</h3>
     <div class="intro"><p>Whatever the reef did, the water target never goes outside these limits, and never changes faster than the daily limit. The defaults suit most tropical reef tanks.</p></div>
     <div class="row">
@@ -559,10 +559,13 @@ async function loadCal() {
     LOCS = await api("/api/locales");
     TS = await api("/api/tank_site");
     $("ts-lat").value = TS.lat; $("ts-lon").value = TS.lon; $("ts-tz").value = TS.tz;
+    // the public default is the reef's own reference site: start from this computer's zone
+    if (/reference site/i.test(TS.name || "") && browserTz()) $("ts-tz").value = browserTz();
+    fitLon();   // a saved longitude that does not belong to its zone is moved to the zone's middle, and says so
     $("band-lo").value = r1(cToF(TS.safety_band_c[0])); $("band-hi").value = r1(cToF(TS.safety_band_c[1]));
     $("step").value = r1(TS.max_step_c_per_day * 9 / 5, 2);
     $("start").value = todayIso();
-    tzWhy(); bandC();
+    tzWhy(); lonWhy(); bandC();
     drawLocs();
     // default: the recommended reef (the backend's own default, Okinawa)
     if (!LOC) pickLoc(LOCS[0]);
@@ -670,8 +673,39 @@ function tzWhy() {
   const mine = browserTz(), v = $("ts-tz").value.trim();
   $("tz-why").innerHTML = mine && v && mine !== v ? `<span class="warn">This computer is set to ${esc(mine)}, but the tank's time zone says ${esc(v)}. Check which one is right for the tank.</span>` : (mine ? `Matches this computer (${esc(mine)}).` : "");
 }
-$("ts-tz").oninput = tzWhy;
-$("ts-mine").onclick = () => { const m = browserTz(); if (m) { $("ts-tz").value = m; tzWhy(); } };
+// Lamp and moon times are placed on the tank's solar noon, which only the
+// longitude sets; the time zone only turns them into clock times. A longitude
+// that does not belong to the zone shifts the whole day, so keep them together.
+function tzStdOffsetH(tz) {   // the zone's standard (non-summer) UTC offset in hours, or null
+  try {
+    const at = d => {
+      const v = new Intl.DateTimeFormat("en-US", {timeZone: tz, timeZoneName: "shortOffset"})
+        .formatToParts(d).find(x => x.type === "timeZoneName").value;
+      const m = /GMT([+-]\d{1,2})(?::(\d{2}))?/.exec(v);
+      return m ? +m[1] + (m[1].startsWith("-") ? -1 : 1) * (+(m[2] || 0)) / 60 : 0;
+    };
+    const y = new Date().getFullYear();
+    return Math.min(at(new Date(Date.UTC(y, 0, 15))), at(new Date(Date.UTC(y, 6, 15))));
+  } catch (e) { return null; }
+}
+function lonGapDeg(lon, tz) { const off = tzStdOffsetH(tz); return off === null ? null : Math.abs((((lon - off * 15) % 360) + 540) % 360 - 180); }
+var LON_TYPED = false;   // var: read by the start-up code, which may run first
+function fitLon() {   // fill a longitude that belongs to the zone, unless the person typed one
+  const tz = $("ts-tz").value.trim(), off = tzStdOffsetH(tz), lon = parseFloat($("ts-lon").value);
+  if (off === null || LON_TYPED) return lonWhy();
+  if (!isFinite(lon) || lonGapDeg(lon, tz) > 22.5) { $("ts-lon").value = r1(off * 15); $("ts-lon").dataset.auto = "1"; }
+  lonWhy();
+}
+function lonWhy() {
+  const tz = $("ts-tz").value.trim(), lon = parseFloat($("ts-lon").value), gap = isFinite(lon) ? lonGapDeg(lon, tz) : null;
+  let h = "";
+  if (gap !== null && gap > 22.5) h = `<span class="warn">Longitude ${esc(String(lon))} is about ${r1(gap / 15)} h away from the ${esc(tz)} time zone: the lights would run that far off your day. Check the longitude, or the time zone.</span>`;
+  else if ($("ts-lon").dataset.auto === "1") h = `Longitude set to ${esc($("ts-lon").value)}, the middle of this time zone. Type your tank's own (the nearest city is enough) for sunrise and sunset within a few minutes.`;
+  $("lon-why").innerHTML = h;
+}
+$("ts-tz").oninput = () => { fitLon(); tzWhy(); };
+$("ts-lon").oninput = () => { LON_TYPED = true; delete $("ts-lon").dataset.auto; lonWhy(); };
+$("ts-mine").onclick = () => { const m = browserTz(); if (m) { $("ts-tz").value = m; fitLon(); tzWhy(); } };
 function bandC() {
   const lo = +$("band-lo").value, hi = +$("band-hi").value, st = +$("step").value;
   $("band-c").textContent = [lo, hi, st].some(isNaN) ? "" : `In °C: ${r1(fToC(lo), 2)} to ${r1(fToC(hi), 2)}, at most ${r1(st * 5 / 9, 3)} per day.`;
