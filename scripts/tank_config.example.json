@@ -2,13 +2,9 @@
   "interval_s": 60,
   "inputs": {
     "temp": {
-      "_note": "The primary temperature. This example reads the Inkbird ITC-306A through its app in the Android emulator (scripts/inkbird_poll.py, one line every 5 minutes); without that emulator this input stays missing and raises temp_missing. Other sources: driver ds18b20_sysfs (a DS18B20 on a Pi or any Linux board), jsonl or http_json (any device that writes a line or answers a URL), or none (no feed yet: a warning only, and the over-temperature cutoff cannot act). No Raspberry Pi is required by any controller function. max_age_s is how old it may be before temp_stale; skip_errors keeps one failed poll from reading as missing.",
-      "driver": "jsonl",
-      "path": "/data/sensors/itc306a_docker.jsonl",
-      "field": "temp_c",
-      "max_age_s": 900,
-      "skip_errors": true,
-      "label": "Inkbird"
+      "_note": "The primary temperature. none (the starting value) means no feed yet: one warning, no alarm, and the over-temperature cutoff cannot act, so your standalone heater thermostat is the only temperature protection. Set a real source before you turn outputs on: driver ds18b20_sysfs (a DS18B20 on a Pi or any Linux board), jsonl (newest line of a file, {\"ts\": ..., \"temp_c\": ...}) or http_json (a URL that answers with JSON). See docs/QUICKSTART.md, 'Temperature and light sources'.",
+      "driver": "none",
+      "label": "Tank thermometer"
     },
     "probe_temp": {
       "_note": "Optional second opinion (a probe on a Pi, for example); delete this input if you have none. Logged beside the Inkbird and compared by the setpoint watch; never an alarm of its own.",

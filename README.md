@@ -58,7 +58,7 @@ The spawning records the reef windows come from: the
 * `tests/`: 22 test files. Import the cue tables first (several tests read
   them), then `docker compose --profile test run --rm tests`.
 
-Built from commit `e81cd5e` of the project repository.
+Built from commit `11bbbbc` of the project repository.
 
 ## Known limits
 
