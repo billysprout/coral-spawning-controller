@@ -54,7 +54,7 @@ section { display: none; } section.on { display: block; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
 .loc { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; background: var(--panel); }
 .loc.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
-.loc.off { opacity: .55; cursor: not-allowed; }
+.loc.off, .choice.off { opacity: .55; cursor: not-allowed; }
 .loc b { display: block; font-size: 14px; }
 .loc small { color: var(--muted); display: block; }
 .pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px;
@@ -190,23 +190,27 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
   </div>
 
   <div class="card wstep" data-w="0">
-    <h2>Where do your animals come from?</h2>
-    <div class="intro"><p>Pick the reef whose year your tank should copy. Each reef has its own spawning season. If you keep <i>Stichodactyla gigantea</i> (giant carpet anemone), the recommended choice is built from the only aquarium record of this anemone spawning.</p></div>
-    <div id="targets" style="margin-top:10px"></div>
-    <div class="grid" id="locs" style="margin-top:10px"></div>
-    <div class="why" style="margin-top:8px"><b>Good data</b>: enough records to trust the season. <b>Pick a species</b>: good data, but the season mixes many species, so choose one in the next step. <b>Limited data</b>: usable, with care. <b>Missing data</b>: cannot be used yet.</div>
+    <h2>What do you want to spawn?</h2>
+    <div class="intro"><p>Each species spawns on its own few nights. Pick yours and the next question offers the reef with the most records of it. No species in mind? Choose <b>No species: I'll pick a reef</b>.</p></div>
+    <div class="sectionhead"><h3 style="margin:0">Recommended</h3></div>
+    <div id="sp-rec"></div>
+    <label class="choice"><input type="radio" name="spc" value="other" id="sp-other-r"> <b>Another species</b>
+      <select id="sp-other" style="margin:6px 0 0 22px;max-width:calc(100% - 30px)"></select>
+      <small>Every species with spawning records, by genus. The number is spawning nights on record.</small></label>
+    <label class="choice"><input type="radio" name="spc" value="" id="sp-none"> <b>No species: I'll pick a reef</b>
+      <small>The reef's whole season, every species pooled: a wider window, less precise.</small></label>
+    <div class="why" style="margin-top:8px"><b>Spawning pattern</b>: <b>One season</b>: once a year, over one or two full moons. <b>Long season</b>: spread over two to four months. <b>Two seasons</b>: two seasons about six months apart (records from both). <b>Spread out</b>: records over more than four months (two seasons or mixed sites). <b>Monthly (brooder)</b>: releases larvae around the moon most months (from its biology). <b>Unknown</b>: fewer than 5 spawning nights on record.</div>
+    <div class="why" id="sp-sel"></div>
   </div>
 
   <div class="card wstep" data-w="1">
-    <h2>What do you want to spawn?</h2>
+    <h2>Which reef should your tank copy?</h2>
+    <div class="intro"><p id="loc-intro">Each reef has its own spawning season. The reef with the most records of your species is already picked; pick another if your animals come from there.</p></div>
     <div id="opt-caveats" class="why"></div>
-    <div class="intro"><p>Each species spawns on its own few nights. Picking one aims the <b>watch nights</b> at that species. If yours is not listed, keep <b>the whole reef</b>.</p></div>
     <div id="sp-hint"></div>
-    <label class="choice"><input type="radio" name="sp" value="" id="sp-none"> <b>The whole reef</b> (every species pooled)
-      <small>A wider window that covers many species; fewer surprises, less precise.</small></label>
-    <div class="row" style="margin:6px 0"><div><label>Find a species</label><input id="sp-filter" placeholder="e.g. Acropora" size="18"></div></div>
-    <div class="scroll" style="max-height:320px;overflow-y:auto"><table class="tbl" id="sp"></table></div>
-    <div class="sub" id="sp-more"></div>
+    <div class="grid" id="locs" style="margin-top:10px"></div>
+    <label style="display:block;margin-top:8px" id="locs-all-wrap"><input type="checkbox" id="locs-all"> Show every reef (one without records of your species uses its whole season)</label>
+    <div class="why" style="margin-top:8px"><b>Good data</b>: enough records to trust the season. <b>Pick a species</b>: good data, but the season mixes many species, so pick a species in the question before. <b>Limited data</b>: usable, with care. <b>Missing data</b>: cannot be used yet.</div>
     <details id="sp-adv"><summary>Advanced: a genus window, or a wider window</summary>
       <div class="row">
         <div id="genus-wrap"><label>Use a genus window instead</label><select id="genus"></select></div>
@@ -549,7 +553,7 @@ async function loadHome() {
 }
 
 /* ---------------- 1: calendar wizard ---------------- */
-const WTITLES = ["Where your animals come from", "What to spawn", "Water temperature curve", "When to start",
+const WTITLES = ["What to spawn", "Which reef", "Water temperature curve", "When to start",
   "Clock and safety limits", "Check the plan", "Confirm"];
 let W = 0, LOCS = [], LOC = null, LAST = null, SP = null, TS = null, APPLIED = false;
 const READY = {"ready": "Good data", "ready-by-species": "Pick a species", "half-ready": "Limited data", "not-ready": "Missing data"};
@@ -574,25 +578,15 @@ async function loadCal() {
     $("step").value = r1(TS.max_step_c_per_day * 9 / 5, 2);
     $("start").value = todayIso();
     tzWhy(); lonWhy(); bandC();
-    drawLocs();
-    // default: the recommended reef (the backend's own default, Okinawa)
-    if (!LOC) pickLoc(LOCS[0]);
-    drawTargets();
+    buildCatalog();
+    // default: the owner's own target (S. gigantea, JAZA), which presets its reef (Okinawa)
+    if (!LOC) pickSel(REC[0]);
+    drawRec();
   }
   goW(APPLIED ? 0 : W);
   APPLIED = false;
 }
-function drawLocs() {
-  $("locs").innerHTML = LOCS.map((l, i) => `<div class="loc${LOC && LOC.id === l.id ? " sel" : ""}${l.readiness === "not-ready" ? " off" : ""}" data-i="${i}" tabindex="0" role="button" aria-pressed="${LOC && LOC.id === l.id}">
-     <b>${esc(l.name)}</b>
-     ${i === 0 ? '<span class="pill rec">Recommended</span>' : ""}<span class="pill ${esc(l.readiness)}">${esc(READY[l.readiness] || l.readiness)}</span>
-     <small>Spawning season on the reef: ${esc(md(l.season_start))} – ${esc(md(l.season_end))}</small>
-     <small>${esc(l.records)} records · ${(l.species || []).length} species · data grade ${esc(l.grade)}</small></div>`).join("");
-  document.querySelectorAll(".loc").forEach((e) => {
-    const go = () => { const l = LOCS[+e.dataset.i]; if (l.readiness !== "not-ready") pickLoc(l); };
-    e.onclick = go; e.onkeydown = (k) => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); go(); } };
-  });
-}
+// ---- question 1: the species (owner decision 2026-11-27: species first, then the reef it presets) ----
 // Popular aquarium targets (owner decision P1, 2026-11-26), in the owner's order. Each one is matched
 // by name in the reefs' species lists; the reef with the most focused records is offered first.
 const TARGETS = [
@@ -607,78 +601,123 @@ const TARGETS = [
   {name: "Species spawned in aquaria by Jamie Craggs (Horniman Museum)", names: [],
    note: "His dated aquarium spawns are not in the data yet."},
 ];
-function targetHits(t) {
+// Spawning pattern, worked out on this page from the species windows the cue tables ship (no new data):
+// brooders from their biology; two seasons where a reef split into two seasons has the species in both;
+// otherwise the length of the season on the reef with the most nights.
+const BROODERS = ["Seriatopora", "Stylophora", "Pocillopora damicornis", "Pocillopora acuta"];
+const SEASON_PAIRS = [["western_australia", "wa_spring"], ["maldives_mar_apr", "maldives_oct_dec"], ["palau_spring", "palau_autumn"]];
+const PATTERN = {single: "One season", long: "Long season", double: "Two seasons", spread: "Spread out",
+                 monthly: "Monthly (brooder)", unknown: "Unknown"};
+const PAT_CLS = {single: "ready", long: "half-ready", double: "ready-by-species", spread: "half-ready", monthly: "ready", unknown: "not-ready"};
+function patPill(p) { return `<span class="pill ${PAT_CLS[p]}" title="Spawning pattern">${esc(PATTERN[p])}</span>`; }
+const nameHit = (names, s) => names.some((n) => s.species === n || s.species.startsWith(n + " ") || s.genus === n);
+function rowPattern(s) {
+  if (s.n_nights < 5 && !s.padded) return "unknown";
+  const d = s.season_days || seasonDays(s.season_start, s.season_end);
+  return d <= 60 ? "single" : d <= 120 ? "long" : "spread";
+}
+function patternOf(names, hits) {
+  if (names.some((n) => BROODERS.some((b) => n === b || n.startsWith(b + " ")))) return "monthly";
+  if (names.some((n) => / sp\.?$/.test(n))) return "unknown";   // unidentified species, pooled
+  const ids = new Set(hits.map((h) => h.l.id));
+  if (SEASON_PAIRS.some(([a, b]) => ids.has(a) && ids.has(b))) return "double";
+  const best = hits.slice().sort((a, b) => b.s.n_nights - a.s.n_nights)[0];
+  return best ? rowPattern(best.s) : "unknown";
+}
+function hitsFor(names) {
   const hits = [];
   LOCS.forEach((l) => {
     if (l.readiness === "not-ready") return;
-    (l.species || []).forEach((s) => {
-      if (t.names.some((n) => s.species === n || s.species.startsWith(n + " ") || s.genus === n)) hits.push({l, s});
-    });
+    (l.species || []).forEach((s) => { if (nameHit(names, s)) hits.push({l, s}); });
   });
   // focused windows first, then the most nights on record
   return hits.sort((a, b) => (a.s.focus === "focused" ? 0 : 1) - (b.s.focus === "focused" ? 0 : 1) || b.s.n_nights - a.s.n_nights);
 }
-function isTarget(name) { return TARGETS.some((t) => t.names.some((n) => name === n || name.startsWith(n + " "))); }
-function drawTargets() {
-  const rows = TARGETS.map((t, i) => {
-    const hits = targetHits(t);
-    const note = t.note ? `<small>${esc(t.note)}</small>` : "";
-    if (!hits.length) return `<div class="choice"><b>${esc(t.name)}</b> <span class="pill not-ready">No data yet</span>${note}</div>`;
-    const best = hits[0], others = hits.slice(1, 4).map((h) => `${esc(h.l.name)} (${h.s.n_nights})`).join(", ");
-    return `<div class="choice"><b>${esc(t.name)}</b> (<i>${esc(best.s.species)}</i>)
-      <button class="sec" data-t="${i}" style="margin-left:6px">Use ${esc(best.l.name)}, ${best.s.n_nights} nights</button>
-      ${note}${others ? `<small>Also on record at: ${others}. Pick one of those reefs below if your animals come from there.</small>` : ""}</div>`;
+let REC = [], OTHERS = [], SEL = null;   // SEL: the chosen species {label, names, hits, pattern}, or null for "no species"
+function mkSel(label, names, note) { const hits = hitsFor(names); return {label, names, note, hits, pattern: patternOf(names, hits)}; }
+function buildCatalog() {
+  const jaza = LOCS[0] && (LOCS[0].species || []).find((s) => s.padded);
+  REC = (jaza ? [mkSel("Giant carpet anemone", [jaza.species],
+                       "Built from the only aquarium record of this anemone spawning (JAZA tank).")] : [])
+    .concat(TARGETS.map((t) => mkSel(t.name, t.names, t.note)));
+  const seen = new Map();
+  LOCS.forEach((l) => (l.species || []).forEach((s) => { if (!s.padded && !seen.has(s.species)) seen.set(s.species, s.genus); }));
+  OTHERS = [...seen.keys()].sort().map((n) => mkSel(n, [n]));
+  const opts = {};
+  OTHERS.forEach((o, i) => {
+    const g = seen.get(o.label) || "Other", nn = o.hits.reduce((a, h) => a + h.s.n_nights, 0);
+    (opts[g] = opts[g] || []).push(`<option value="${i}">${esc(o.label)} · ${nn} night${nn === 1 ? "" : "s"} · ${esc(PATTERN[o.pattern])}</option>`);
+  });
+  $("sp-other").innerHTML = `<option value="">Choose a species…</option>` +
+    Object.keys(opts).sort().map((g) => `<optgroup label="${esc(g)}">${opts[g].join("")}</optgroup>`).join("");
+}
+function drawRec() {
+  $("sp-rec").innerHTML = REC.map((r, i) => {
+    const best = r.hits[0], note = r.note ? `<small>${esc(r.note)}</small>` : "";
+    const where = best ? `<small>Best reef: ${esc(best.l.name)}, ${best.s.n_nights} spawning night${best.s.n_nights === 1 ? "" : "s"} on record${r.hits.length > 1 ? ` (also at ${r.hits.length - 1} other reef${r.hits.length > 2 ? "s" : ""})` : ""}.</small>` : "";
+    return `<label class="choice${best ? "" : " off"}"><input type="radio" name="spc" value="rec${i}" ${SEL === r ? "checked" : ""} ${best ? "" : "disabled"}>
+      <b>${esc(r.label)}</b>${best && best.s.species !== r.label ? ` (<i>${esc(best.s.species.replace(/ \(JAZA\)$/, ""))}</i>)` : ""}
+      ${i === 0 && best ? '<span class="pill rec">Recommended</span>' : ""} ${patPill(r.pattern)}${best ? "" : ' <span class="pill not-ready">No data yet</span>'}
+      ${where}${note}</label>`;
   }).join("");
-  $("targets").innerHTML = `<div class="sectionhead"><h3 style="margin:0">Popular aquarium targets</h3></div>${rows}` +
-    `<div class="why">Not listed? Pick a reef below and search its species in the next question.</div>`;
-  $("targets").querySelectorAll("button[data-t]").forEach((b) => b.onclick = () => {
-    const best = targetHits(TARGETS[+b.dataset.t])[0];
-    pickLoc(best.l); SP = best.s.species;
-    $("pad-s").value = best.s.padded ? 0 : 3; $("pad-m").value = best.s.padded ? 0 : 1;
-    drawSpecies(); aim(); setLead();
-    b.textContent = `Picked: ${best.l.name}, ${best.s.species}`;
+  $("sp-rec").querySelectorAll("input[name=spc]").forEach((e) => e.onchange = () => pickSel(REC[+e.value.slice(3)]));
+  const oi = OTHERS.indexOf(SEL);
+  $("sp-other-r").checked = oi >= 0; if (oi >= 0) $("sp-other").value = String(oi);
+  $("sp-none").checked = !SEL;
+  $("sp-sel").innerHTML = SEL ? `Picked: <b>${esc(SEL.label)}</b> ${patPill(SEL.pattern)}. Reef: ${esc(LOC ? LOC.name : "–")} (change it in the next question).`
+                              : "No species: pick the reef in the next question.";
+}
+$("sp-other").onchange = () => { const o = OTHERS[+$("sp-other").value]; if ($("sp-other").value !== "" && o) pickSel(o); };
+$("sp-other-r").onchange = () => { if ($("sp-other").value !== "") pickSel(OTHERS[+$("sp-other").value]); else $("sp-other").focus(); };
+$("sp-none").onchange = () => pickSel(null);
+function pickSel(sel) {
+  SEL = sel; $("locs-all").checked = !sel;
+  if (sel && sel.hits.length) pickLoc(sel.hits[0].l); else if (LOC) pickLoc(LOC); else pickLoc(LOCS[0]);
+  drawRec();
+}
+
+// ---- question 2: the reef, preset from the species ----
+function selRow(l) { return SEL ? (l.species || []).find((s) => nameHit(SEL.names, s)) : null; }
+function drawLocs() {
+  const all = !SEL || $("locs-all").checked;
+  const rank = (l) => { const k = SEL ? SEL.hits.findIndex((h) => h.l.id === l.id) : -1; return k < 0 ? 1e3 : k; };   // the species' reefs in hitsFor order
+  const list = LOCS.map((l, i) => [l, i, selRow(l)]).filter(([l, , s]) => all || s)
+    .sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]);
+  $("locs-all-wrap").hidden = !SEL;
+  $("loc-intro").textContent = SEL
+    ? `Reefs with ${SEL.label} on record, best records first (the first is already picked). Pick another if your animals come from there.`
+    : "Pick the reef whose year your tank should copy. Each reef has its own spawning season.";
+  $("locs").innerHTML = list.map(([l, i, s]) => `<div class="loc${LOC && LOC.id === l.id ? " sel" : ""}${l.readiness === "not-ready" ? " off" : ""}" data-i="${i}" tabindex="0" role="button" aria-pressed="${LOC && LOC.id === l.id}">
+     <b>${esc(l.name)}</b>
+     ${SEL && s && SEL.hits[0] && SEL.hits[0].l.id === l.id ? '<span class="pill rec">Most records</span>' : !SEL && i === 0 ? '<span class="pill rec">Recommended</span>' : ""}<span class="pill ${esc(l.readiness)}">${esc(READY[l.readiness] || l.readiness)}</span>
+     ${s ? `<small><i>${esc(s.species.replace(/ \(JAZA\)$/, ""))}</i> here: ${s.n_nights} night${s.n_nights === 1 ? "" : "s"}, ${esc(md(s.season_start))} – ${esc(md(s.season_end))} ${patPill(SEL.pattern === "double" && SEASON_PAIRS.some((p) => p.includes(l.id)) ? "single" : SEL.pattern === "monthly" ? "monthly" : rowPattern(s))}</small>`
+         : SEL ? `<small class="warn">No ${esc(SEL.label)} records here: uses the reef's whole season.</small>` : ""}
+     <small>Spawning season on the reef: ${esc(md(l.season_start))} – ${esc(md(l.season_end))}</small>
+     <small>${esc(l.records)} records · ${(l.species || []).length} species · data grade ${esc(l.grade)}</small></div>`).join("") ||
+    `<div class="warn">No reef has records of ${esc(SEL.label)} yet. Tick "Show every reef" to use a reef's whole season.</div>`;
+  document.querySelectorAll(".loc").forEach((e) => {
+    const go = () => { const l = LOCS[+e.dataset.i]; if (l.readiness !== "not-ready") pickLoc(l); };
+    e.onclick = go; e.onkeydown = (k) => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); go(); } };
   });
 }
+$("locs-all").onchange = drawLocs;
 function pickLoc(l) {
-  LOC = l; SP = null; LAST = null;
+  LOC = l; LAST = null;
+  const row = selRow(l);
+  SP = row ? row.species : null;
   drawLocs();
   $("opt-caveats").innerHTML = `<b>${esc(l.name)}</b>: ` + l.caveats.map(esc).join("; ");
   $("temps").innerHTML = l.temps.map((t, i) => `<label class="choice">
      <input type="radio" name="temp" value="${esc(t.id)}" ${i === 0 ? "checked" : ""}> ${i === 0 ? '<span class="pill rec">Recommended</span>' : ""}<b>${esc(TEMP_PLAIN[t.id] || t.label)}</b>
      <small>${esc(t.label)} · data level ${esc(t.level)} (0 = measured in a tank or on the reef, 4 = satellite)</small></label>`).join("");
   $("genus").innerHTML = `<option value="">—</option>` + l.genera.map((g) => `<option value="${esc(g.genus)}">${esc(g.genus)} (${esc(g.grade)}, ${g.n_nights} nights, ${esc(md(g.season_start))}–${esc(md(g.season_end))})</option>`).join("");
-  $("genus-wrap").hidden = !l.genera.length; $("sp-filter").value = "";
-  $("pad-s").value = 0; $("pad-m").value = 0;
-  // the owner's own target comes pre-selected where it exists
-  const jaza = (l.species || []).find((s) => s.padded);
-  if (jaza) SP = jaza.species;
-  $("sp-hint").innerHTML = l.readiness === "ready-by-species"
-    ? `<div class="warn" style="font-size:13px">This reef's pooled season mixes many species. Picking one of the species below gives a much better aim.</div>` : "";
-  drawSpecies(); aim(); setLead();
+  $("genus-wrap").hidden = !l.genera.length;
+  $("pad-s").value = row && !row.padded ? 3 : 0; $("pad-m").value = row && !row.padded ? 1 : 0;
+  $("sp-hint").innerHTML = l.readiness === "ready-by-species" && !SP
+    ? `<div class="warn" style="font-size:13px">This reef's pooled season mixes many species. Picking a species in the question before gives a much better aim.</div>` : "";
+  aim(); setLead();
 }
-function drawSpecies() {
-  const f = $("sp-filter").value.trim().toLowerCase();
-  const all = (LOC.species || []).filter((s) => !f || s.species.toLowerCase().includes(f))
-    .map((s, i) => [s, i]).sort((a, b) => (b[0].padded ? 2 : isTarget(b[0].species) ? 1 : 0) - (a[0].padded ? 2 : isTarget(a[0].species) ? 1 : 0) || a[1] - b[1])
-    .map((x) => x[0]);   // the owner's own target, then the popular targets, then most nights first
-  const show = f ? all : all.slice(0, 40);
-  $("sp-none").checked = !SP && !$("genus").value;
-  $("sp").innerHTML = "<tr><th></th><th>species</th><th>spawning nights on record</th><th>season</th><th>nights after full moon</th><th>data</th></tr>" +
-    show.map((s) => `<tr class="sp-row${s.species === SP ? " sel" : ""}"><td><input type="radio" name="sp" value="${esc(s.species)}" ${s.species === SP ? "checked" : ""} aria-label="${esc(s.species)}"></td>
-      <td><i>${esc(s.species)}</i>${s.padded ? ' <span class="pill rec">Recommended</span>' : isTarget(s.species) ? ' <span class="pill ready">Popular target</span>' : ""}</td><td>${s.n_nights} <span class="muted">(${esc(s.years)})</span></td>
-      <td>${esc(md(s.season_start))} – ${esc(md(s.season_end))}</td><td>${esc(s.daf_lo)}–${esc(s.daf_hi)}</td>
-      <td class="${s.grade === "thin" || s.wide ? "warn" : ""}">${esc(s.grade === "thin" && !s.wide ? "thin: widen it" : s.grade)}${s.wide ? `<br>wide: ${s.season_days} days` : ""}</td></tr>`).join("");
-  $("sp-more").textContent = all.length > show.length ? `showing ${show.length} of ${all.length}; type in "Find a species" to see the rest` : "";
-  $("sp").querySelectorAll("input[name=sp]").forEach((e) => e.onchange = () => {
-    SP = e.value; $("genus").value = "";
-    const s = LOC.species.find((x) => x.species === SP);
-    $("pad-s").value = s.padded ? 0 : 3; $("pad-m").value = s.padded ? 0 : 1;
-    drawSpecies(); aim(); setLead();
-  });
-}
-$("sp-none").onchange = () => { SP = null; $("genus").value = ""; $("pad-s").value = 0; $("pad-m").value = 0; drawSpecies(); aim(); setLead(); };
-$("sp-filter").oninput = () => LOC && drawSpecies();
-$("genus").onchange = () => { if ($("genus").value) { SP = null; drawSpecies(); } aim(); setLead(); };
+$("genus").onchange = () => { SP = $("genus").value ? null : (selRow(LOC) || {}).species || null; aim(); setLead(); };
 ["pad-s", "pad-m"].forEach((id) => $(id).oninput = () => { aim(); setLead(); });
 function target() {
   if (SP) return LOC.species.find((x) => x.species === SP);
@@ -842,13 +881,15 @@ function goW(i) {
   $("w-next").hidden = W === WTITLES.length - 1;
   $("w-next").textContent = W === 4 ? "Next: build the preview →" : W === 5 ? "Next: confirm →" : "Next →";
   say("w-msg", "");
+  if (W === 0 && REC.length) drawRec();
   if (W === 5) ensurePreview();
   if (W === 6) drawConfirm();
   window.scrollTo(0, 0);
 }
 $("w-back").onclick = () => goW(W - 1);
 $("w-next").onclick = () => {
-  if (W === 0 && !LOC) return say("w-msg", "pick a reef first", "warn");
+  if (W === 0 && $("sp-other-r").checked && !SEL) return say("w-msg", "choose a species from the list, or pick No species", "warn");
+  if (W === 1 && !LOC) return say("w-msg", "pick a reef first", "warn");
   if (W === 2 && !document.querySelector("input[name=temp]:checked")) return say("w-msg", "pick a temperature curve", "warn");
   if (W === 3 && !$("start").value) return say("w-msg", "pick a first day", "warn");
   if (W === 4) { try { limitsC(); } catch (e) { return say("w-msg", e.message, "bad"); } if (!$("ts-tz").value.trim()) return say("w-msg", "type a time zone", "warn"); }
