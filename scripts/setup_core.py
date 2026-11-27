@@ -1408,7 +1408,7 @@ DECISIONS = [
     ("moon_lux", "Cues", "Moon target at the sensor (lux)", "config:plan.moon_lux_range", "pair",
      "0.1 to 0.3 lux. Moonlight much brighter than a real moon may hold spawning back instead of cueing it."),
     ("hourly", "Cues", "Hourly temperature offsets (C, 24 values)", "config:plan.hourly_offsets_c", "list",
-     "No measured daily pattern yet: these are hand-made values, not from a source. Flat zeros are the safe choice."),
+     "Flat zeros: the water target holds steady through the day. No measured daily reef pattern has been found yet (an open quest)."),
     ("itc_cue", "Cues", "Cue-driven Inkbird T1/T2 writes", "config:itc_setpoints.enabled", "bool",
      "Moves the Inkbird's set points with the cue table, through its app in the emulator."),
     # --- life support: redundancy, the independent watchdog, safe mode ---

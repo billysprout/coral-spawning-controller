@@ -1,19 +1,109 @@
 # Coral Spawning Controller
 
-A plug-array tank controller that replays a reef's spawning cues (seasonal
-temperature, daylight, moonlight and true after-sunset dark) from a cue
-calendar: it plans each minute, switches smart plugs and dimmers with read-back,
-reads temperature and lux, and alerts. With it come the onboarding page (pick a
-reef, a species and a start point; set up the plugs and the fail-safes) and the
-tracking page (where the tank is on its cue calendar, with its own readings laid
-over the plan).
+An open, community project to get reef animals spawning in home aquaria. The
+controller replays a real reef's spawning cues in your tank (seasonal
+temperature, day length, moonlight and true after-sunset dark) from a cue
+calendar. It plans each minute, switches smart plugs and dimmers with
+read-back, reads temperature and light, and alerts your phone. With it come an
+onboarding page (pick a reef, a species and a start point; set up the plugs and
+the fail-safes) and a tracking page (where the tank is on its cue calendar,
+with its own readings laid over the plan).
+
+It works on one tank so far and has not yet produced a spawn. Every tank that
+runs it, every spawning night logged and every fix makes the next attempt more
+likely. **Pick a quest below.**
 
 **Start here: [docs/QUICKSTART.md](docs/QUICKSTART.md).** Hardware list and the
 "check before you buy" test: [docs/NEW-USER-HARDWARE.md](docs/NEW-USER-HARDWARE.md).
 
 **It is not life support.** A heater, a return pump or a chiller must never
-depend on it. It starts in watch-only mode and switches nothing until you turn
+depend on it. Your heater keeps its own thermostat and its own high cutoff. The
+controller starts in watch-only mode and switches nothing until you turn
 outputs on ([docs/TURNING-OUTPUTS-ON.md](docs/TURNING-OUTPUTS-ON.md)).
+
+## Quests
+
+Open work, biggest wins first in each line. Open an issue to claim one or to
+ask, then send a pull request. Cue-data quests go to
+[reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables) instead.
+
+1. **Harden the Inkbird path.** Reading and setting an Inkbird ITC-306A goes
+   through its phone app in an Android emulator. It is the path of least
+   resistance today, and fragile. Optimize, harden or refactor it (the emulator
+   is not shipped here; the controller side is `scripts/tank_itc*.py` and
+   `scripts/itc_setpoints.py`).
+2. **Better cue tables.** Find new reefs or refine the existing tables: better
+   temperature data, more dated spawning nights, better light data
+   ([reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables)).
+3. **More life-support hardware.** Add drivers for non-Tuya plugs, Home
+   Assistant and similar hubs, and other temperature controllers
+   (`scripts/tank_plugs.py`, `scripts/tank_inputs.py`).
+4. **reef-pi and the lifeguard in onboarding.** Make reef-pi (a separate open
+   controller) and this repo's independent watchdog (`scripts/lifeguard.py`) a
+   formal part of the onboarding page and the docs.
+5. **A crowdsourcing framework** (larger project). Let hobbyists log their
+   controller setup, schedules, errors caught and missed, and spawning events,
+   with a way to audit and correct or hone the cue tables from what tanks
+   report.
+6. **A spawning competition.** Spread the word and get more tanks on a cue
+   cycle.
+7. **Jamie Craggs' aquarium spawns.** The Horniman Coral Spawning Project's
+   dated spawns are not in the cue tables yet. Someone with lawful access to the
+   paywalled papers can collect the facts (species, date, start time, citation;
+   never the papers themselves) and add them to the cue tables, or ask Craggs
+   for the data with permission to publish it under the tables' licence
+   (CC BY-NC 4.0).
+8. **A daily temperature pattern.** The hour-by-hour temperature offsets are
+   flat zeros. Find a measured daily pattern on spawning reefs (reef loggers)
+   to replace them.
+
+## Repository map
+
+| Path | What it is |
+|---|---|
+| `scripts/start.sh` | The one command for users: start, stop, status, `telegram`, `golive`, `check` |
+| `scripts/tank_supervisor.py` | Container entry point: imports the cue tables, checks them, runs the controller |
+| `scripts/conductor.py`, `scripts/tank_*.py` | The controller: plan (`tank_plan.py`), inputs, plugs and outputs, lamps, heat and cooling, safe mode, health, alerts |
+| `scripts/cues.py`, `scripts/spawn_calendar.py`, `scripts/tank_arcs.py` | Cue parameters, calendar building, the light and temperature curves |
+| `scripts/lifeguard.py` | Independent watchdog: alerts when the controller or the thermometers go quiet |
+| `scripts/setup_web.py`, `setup_core.py`, `setup_page.html` | Onboarding page (port 8098), works on a practice copy |
+| `scripts/host_helper.py` | What the onboarding page cannot do itself: Telegram setup, go-live copy, health check (run by `start.sh`) |
+| `scripts/track_web.py`, `track_core.py`, `track_page.html` | Tracking page (port 8095) |
+| `scripts/cue_import.py`, `cue_schema.py`, `data_manifest.py`, `audit_cue_tables.py` | Cue-table import, format check, fingerprint check, audit |
+| `scripts/sandbox_feed.py` | Practice stack: fake sensors and plugs for trying it with no hardware |
+| `scripts/*.example.json` | Example tank config and plug lists |
+| `docker-compose.yml` | Services: `tank`, `lifeguard`, `autoheal` by default; `setup`, `sandbox`, `watch`, `test` as profiles |
+| `docs/` | Quickstart, hardware, life support, turning outputs on, lux sensors, Pi sensors, watch capture, interface guide |
+| `tests/` | 22 test files |
+| `data/` | The working folder (mounted at `/data`), empty in git; see `data/README.md` |
+
+## Commands
+
+```
+sh scripts/start.sh             # build and start: controller, watchdog, onboarding page
+sh scripts/start.sh status      # services and their health
+sh scripts/start.sh telegram    # phone alerts: bot token (hidden), .env, restart, test alert
+sh scripts/start.sh golive      # copy the onboarding page's practice choices to the live tank
+sh scripts/start.sh check       # health check: cue data, controller, thermometer, alerts
+sh scripts/start.sh stop        # stop (data is kept)
+docker compose --profile test run --rm tests                # tests (import the cue tables first)
+docker compose --profile sandbox up -d --build sandbox      # practice stack, no hardware
+```
+
+Pages: tracking <http://127.0.0.1:8095/>, onboarding <http://127.0.0.1:8098/>.
+Needs only Docker; on Windows run `start.sh` from Git Bash.
+
+## Where things live
+
+| What | Where |
+|---|---|
+| Secrets (Telegram token, chat id, dead-man URL) | `.env` (from `.env.example`; gitignored, never shown on a page) |
+| Tank settings | `data/tank_config.json` (from `scripts/tank_config.example.json`) |
+| Plugs and their local keys | `data/tuya/plug_array.json`, `data/tuya/devices.json` |
+| The calendar the tank follows | `data/spawn_calendar_*.csv`, chosen in `data/setup.json` |
+| Cue tables | `data/locales/`, `data/reference/` and friends, installed from reef-cue-tables; `data/cue_tables.json` says which |
+| Onboarding page's practice copy | `staging/data/` (`golive` copies it to `data/`, with a backup in `data/backups/`) |
+| Logs and readings | `data/` (written by your tank, gitignored) |
 
 ## Cue tables
 
@@ -45,27 +135,33 @@ the same check on a cue-table repository.
 The spawning records the reef windows come from: the
 [Spawning Array](https://realfakedoors-idaho.github.io/reef-cue-tables/).
 
-## What is in it
+## Notes for contributors and coding agents
 
-* `scripts/`: the controller (`conductor.py`, `tank_*.py`), the independent
-  watchdog (`lifeguard.py`), the onboarding page (`setup_*`), the tracking page
-  (`track_*`), the practice sandbox feed, the watch-night recorder, the cue-table
-  importer (`cue_import.py`, `cue_schema.py`) and the cue-data check
-  (`data_manifest.py`).
-* `docker-compose.yml`: `tank`, `lifeguard` and `autoheal` start by default;
-  `setup`, `sandbox`, `watch` and `test` are profiles. `sh scripts/start.sh`
-  starts what a new user needs.
-* `tests/`: 22 test files. Import the cue tables first (several tests read
-  them), then `docker compose --profile test run --rm tests`.
+* **Safety first.** Nothing here may become the only thing keeping an animal
+  alive. Changes that switch plugs keep read-back, the lamp backstops
+  (countdowns), safe mode and the watchdog working; `tests/` covers them.
+* **Practice before live.** The onboarding page writes only to `staging/data`
+  and refuses real plugs; only `start.sh golive` touches the live folder.
+* **Units and time.** Files and code hold temperatures in Celsius; the pages
+  show Fahrenheit. The tank's longitude sets its solar noon (4 minutes per
+  degree); the time zone only formats clock times.
+* **Cue data is checked.** `data_manifest.json` pins the audited cue files; a
+  changed file raises `data_manifest_mismatch`. Change cue data in
+  reef-cue-tables, not here.
+* **External APIs.** Follow a posted rate limit, else at most 1 request per
+  second; back off exponentially on every failure; stop after 3 failed
+  requests in a row and report the host as unreachable.
+* **Tests.** Import the cue tables first (several tests read them), then run
+  the `test` profile.
 
-Built from commit `14bbf99` of the project repository.
+Built from commit `a4cd7b8` of the project repository.
 
 ## Known limits
 
-* The onboarding page works on a staging copy (`staging/data`) only; it has
-  not been run against a live data folder and real plugs.
-* The containers run on Pacific time (`TZ` in `Dockerfile`); change it to yours.
 * Validated on one tank only. No spawn has yet been produced by it.
+* The onboarding page has been run end to end on a practice copy. The
+  `golive` and `telegram` helpers are new.
+* The containers run on Pacific time (`TZ` in `Dockerfile`); change it to yours.
 
 ## Licence
 

@@ -192,9 +192,9 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
   <div class="card wstep" data-w="0">
     <h2>Where do your animals come from?</h2>
     <div class="intro"><p>Pick the reef whose year your tank should copy. Each reef has its own spawning season. If you keep <i>Stichodactyla gigantea</i> (giant carpet anemone), the recommended choice is built from the only aquarium record of this anemone spawning.</p></div>
+    <div id="targets" style="margin-top:10px"></div>
     <div class="grid" id="locs" style="margin-top:10px"></div>
     <div class="why" style="margin-top:8px"><b>Good data</b>: enough records to trust the season. <b>Pick a species</b>: good data, but the season mixes many species, so choose one in the next step. <b>Limited data</b>: usable, with care. <b>Missing data</b>: cannot be used yet.</div>
-    <div class="ph">OWNER DECISION (placeholder): which targets to offer beyond <i>S. gigantea</i>. Other anemone species have no spawning record here yet; the other reefs' seasons come from coral and other records.</div>
   </div>
 
   <div class="card wstep" data-w="1">
@@ -253,7 +253,8 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
     <div class="why" id="tz-why"></div>
     <div class="row">
       <div><label>Longitude (west is negative): sets when your tank's day falls</label><input id="ts-lon" size="8"></div>
-      <div><label>Latitude (south is negative): kept for the record, not used for the lights</label><input id="ts-lat" size="8"></div>
+      <div><button class="sec" id="ts-geo">Use my location (optional)</button></div>
+      <input id="ts-lat" type="hidden"><!-- latitude is not used for the lights; kept only when the location button fills it -->
     </div>
     <div class="why" id="lon-why"></div>
     <h3>Temperature safety limits</h3>
@@ -576,6 +577,7 @@ async function loadCal() {
     drawLocs();
     // default: the recommended reef (the backend's own default, Okinawa)
     if (!LOC) pickLoc(LOCS[0]);
+    drawTargets();
   }
   goW(APPLIED ? 0 : W);
   APPLIED = false;
@@ -589,6 +591,52 @@ function drawLocs() {
   document.querySelectorAll(".loc").forEach((e) => {
     const go = () => { const l = LOCS[+e.dataset.i]; if (l.readiness !== "not-ready") pickLoc(l); };
     e.onclick = go; e.onkeydown = (k) => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); go(); } };
+  });
+}
+// Popular aquarium targets (owner decision P1, 2026-11-26), in the owner's order. Each one is matched
+// by name in the reefs' species lists; the reef with the most focused records is offered first.
+const TARGETS = [
+  {name: "Birdsnest coral", names: ["Seriatopora"],
+   note: "The easiest coral for hobbyists to spawn, but it can quickly take over a tank once it starts. A separate spawning tank is strongly encouraged."},
+  {name: "Table acropora", names: ["Acropora hyacinthus"]},
+  {name: "Torch coral", names: ["Euphyllia glabrescens"]},
+  {name: "Hammer coral", names: ["Euphyllia ancora", "Fimbriaphyllia ancora"],
+   note: "Now named Fimbriaphyllia ancora; a close relative of the torch."},
+  {name: "Frogspawn coral", names: ["Euphyllia divisa", "Fimbriaphyllia divisa"],
+   note: "Now named Fimbriaphyllia divisa; a close relative of the torch."},
+  {name: "Species spawned in aquaria by Jamie Craggs (Horniman Museum)", names: [],
+   note: "His dated aquarium spawns are not in the data yet."},
+];
+function targetHits(t) {
+  const hits = [];
+  LOCS.forEach((l) => {
+    if (l.readiness === "not-ready") return;
+    (l.species || []).forEach((s) => {
+      if (t.names.some((n) => s.species === n || s.species.startsWith(n + " ") || s.genus === n)) hits.push({l, s});
+    });
+  });
+  // focused windows first, then the most nights on record
+  return hits.sort((a, b) => (a.s.focus === "focused" ? 0 : 1) - (b.s.focus === "focused" ? 0 : 1) || b.s.n_nights - a.s.n_nights);
+}
+function isTarget(name) { return TARGETS.some((t) => t.names.some((n) => name === n || name.startsWith(n + " "))); }
+function drawTargets() {
+  const rows = TARGETS.map((t, i) => {
+    const hits = targetHits(t);
+    const note = t.note ? `<small>${esc(t.note)}</small>` : "";
+    if (!hits.length) return `<div class="choice"><b>${esc(t.name)}</b> <span class="pill not-ready">No data yet</span>${note}</div>`;
+    const best = hits[0], others = hits.slice(1, 4).map((h) => `${esc(h.l.name)} (${h.s.n_nights})`).join(", ");
+    return `<div class="choice"><b>${esc(t.name)}</b> (<i>${esc(best.s.species)}</i>)
+      <button class="sec" data-t="${i}" style="margin-left:6px">Use ${esc(best.l.name)}, ${best.s.n_nights} nights</button>
+      ${note}${others ? `<small>Also on record at: ${others}. Pick one of those reefs below if your animals come from there.</small>` : ""}</div>`;
+  }).join("");
+  $("targets").innerHTML = `<div class="sectionhead"><h3 style="margin:0">Popular aquarium targets</h3></div>${rows}` +
+    `<div class="why">Not listed? Pick a reef below and search its species in the next question.</div>`;
+  $("targets").querySelectorAll("button[data-t]").forEach((b) => b.onclick = () => {
+    const best = targetHits(TARGETS[+b.dataset.t])[0];
+    pickLoc(best.l); SP = best.s.species;
+    $("pad-s").value = best.s.padded ? 0 : 3; $("pad-m").value = best.s.padded ? 0 : 1;
+    drawSpecies(); aim(); setLead();
+    b.textContent = `Picked: ${best.l.name}, ${best.s.species}`;
   });
 }
 function pickLoc(l) {
@@ -610,12 +658,14 @@ function pickLoc(l) {
 }
 function drawSpecies() {
   const f = $("sp-filter").value.trim().toLowerCase();
-  const all = (LOC.species || []).filter((s) => !f || s.species.toLowerCase().includes(f));
+  const all = (LOC.species || []).filter((s) => !f || s.species.toLowerCase().includes(f))
+    .map((s, i) => [s, i]).sort((a, b) => (b[0].padded ? 2 : isTarget(b[0].species) ? 1 : 0) - (a[0].padded ? 2 : isTarget(a[0].species) ? 1 : 0) || a[1] - b[1])
+    .map((x) => x[0]);   // the owner's own target, then the popular targets, then most nights first
   const show = f ? all : all.slice(0, 40);
   $("sp-none").checked = !SP && !$("genus").value;
   $("sp").innerHTML = "<tr><th></th><th>species</th><th>spawning nights on record</th><th>season</th><th>nights after full moon</th><th>data</th></tr>" +
     show.map((s) => `<tr class="sp-row${s.species === SP ? " sel" : ""}"><td><input type="radio" name="sp" value="${esc(s.species)}" ${s.species === SP ? "checked" : ""} aria-label="${esc(s.species)}"></td>
-      <td><i>${esc(s.species)}</i>${s.padded ? ' <span class="pill rec">Recommended</span>' : ""}</td><td>${s.n_nights} <span class="muted">(${esc(s.years)})</span></td>
+      <td><i>${esc(s.species)}</i>${s.padded ? ' <span class="pill rec">Recommended</span>' : isTarget(s.species) ? ' <span class="pill ready">Popular target</span>' : ""}</td><td>${s.n_nights} <span class="muted">(${esc(s.years)})</span></td>
       <td>${esc(md(s.season_start))} – ${esc(md(s.season_end))}</td><td>${esc(s.daf_lo)}–${esc(s.daf_hi)}</td>
       <td class="${s.grade === "thin" || s.wide ? "warn" : ""}">${esc(s.grade === "thin" && !s.wide ? "thin: widen it" : s.grade)}${s.wide ? `<br>wide: ${s.season_days} days` : ""}</td></tr>`).join("");
   $("sp-more").textContent = all.length > show.length ? `showing ${show.length} of ${all.length}; type in "Find a species" to see the rest` : "";
@@ -739,6 +789,20 @@ function lonWhy() {
 })();
 $("ts-tz").oninput = () => { fitLon(); tzWhy(); };
 $("ts-lon").oninput = () => { LON_TYPED = true; delete $("ts-lon").dataset.auto; lonWhy(); };
+// Optional: the browser's own location (it asks the person first). Only longitude matters for the lights;
+// the position stays on this computer apart from being saved with the tank's settings.
+$("ts-geo").onclick = () => {
+  if (!navigator.geolocation) { $("lon-why").textContent = "This browser cannot share a location. Type the longitude of the nearest city instead."; return; }
+  $("ts-geo").disabled = true; $("ts-geo").textContent = "Asking the browser…";
+  navigator.geolocation.getCurrentPosition((p) => {
+    $("ts-lon").value = r1(p.coords.longitude, 2); $("ts-lat").value = r1(p.coords.latitude, 2);
+    LON_TYPED = true; delete $("ts-lon").dataset.auto; lonWhy();
+    $("ts-geo").disabled = false; $("ts-geo").textContent = "Use my location (optional)";
+  }, (e) => {
+    $("ts-geo").disabled = false; $("ts-geo").textContent = "Use my location (optional)";
+    $("lon-why").textContent = `No location from the browser (${e.message || "refused"}). Type the longitude of the nearest city instead.`;
+  }, {timeout: 15000, maximumAge: 600000});
+};
 $("ts-mine").onclick = () => { const m = browserTz(); if (m) { $("ts-tz").value = m; fitLon(); tzWhy(); } };
 function bandC() {
   const lo = +$("band-lo").value, hi = +$("band-hi").value, st = +$("step").value;
@@ -892,9 +956,13 @@ function drawConfirm() {
     : `Today's target now is ${esc(tf(t.target_c))}, so the water target barely changes.`);
   li.push(`The first watch night is ${s.first_watch ? `<b>${esc(day(s.first_watch))}</b>` : "none"}. The tracking page counts down to it.`);
   li.push(`Your current calendar and settings are backed up beside themselves first, so nothing is lost. You can make a new calendar at any time.`);
-  $("cf-what").innerHTML = `<p><b>What happens when you press Confirm:</b></p><ul class="plain">${li.map((x) => `<li>${x}</li>`).join("")}</ul>` +
-    (jump != null && Math.abs(jump) >= 0.5 ? `<div class="ph">OWNER DECISION (placeholder): whether a new calendar should ease from today's target instead of switching at once. Until decided, check a large change by hand.</div>` : "") +
-    (OV && OV.staging ? `<div class="ph">OWNER DECISION (placeholder): how a calendar made in practice mode is moved to the live tank is not decided yet.</div>` : "");
+  // A new tank starts from scratch, so a new calendar switches at once (owner decision P3, 2026-11-26).
+  // When one is already set, say plainly that confirming resets it.
+  const cur = OV && OV.calendar ? (OV.calendar.file || OV.calendar.name || (typeof OV.calendar === "string" ? OV.calendar : "")) : "";
+  const had = cur || (t && t.target_c != null);
+  $("cf-what").innerHTML = (had ? `<div class="warn" style="margin-bottom:8px"><b>A spawning calendar is already set${cur ? ` (${esc(cur)})` : ""}.</b> Confirming replaces it at once: the tank starts over at today's position in the new calendar, with no gradual hand-over. The old calendar is backed up first.</div>` : "") +
+    `<p><b>What happens when you press Confirm:</b></p><ul class="plain">${li.map((x) => `<li>${x}</li>`).join("")}</ul>` +
+    (OV && OV.staging ? `<div class="why">This is the practice copy. To move it to the live tank, run <code class="cmd">sh scripts/start.sh golive</code> in the controller folder: it shows what will change and asks first.</div>` : "");
 }
 $("pv-ok").onchange = () => $("btn-apply").disabled = !$("pv-ok").checked;
 $("btn-apply").onclick = async () => {
