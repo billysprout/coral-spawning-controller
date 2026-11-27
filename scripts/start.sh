@@ -5,6 +5,10 @@
 #     sh scripts/start.sh --yes      same, without the "already running" question
 #     sh scripts/start.sh stop       stop the new-user services (data is kept)
 #     sh scripts/start.sh status     list them with their health
+#     sh scripts/start.sh telegram   phone alerts: asks for the bot token, writes .env, restarts, test alert
+#     sh scripts/start.sh golive     make the setup page's practice calendar and settings live, restart
+#     sh scripts/start.sh check      health check (cue data, controller, thermometer, alerts); the setup
+#                                    page shows the result in step 3
 #
 # Starts exactly the services a new user needs (data/docs/QUICKSTART.md):
 #   tank       tank-controller   the controller (observe-only until you switch outputs on)
@@ -30,8 +34,8 @@ CMD=start
 for a in "$@"; do
   case "$a" in
     --yes|-y) YES=1 ;;
-    start|stop|status) CMD=$a ;;
-    *) echo "usage: sh scripts/start.sh [start|stop|status] [--yes]" >&2; exit 2 ;;
+    start|stop|status|telegram|golive|check) CMD=$a ;;
+    *) echo "usage: sh scripts/start.sh [start|stop|status|telegram|golive|check] [--yes]" >&2; exit 2 ;;
   esac
 done
 
@@ -47,6 +51,21 @@ fi
 
 dc() { docker compose --profile setup "$@"; }
 
+# The jobs the setup page cannot do itself (scripts/host_helper.py), in a throwaway
+# container of the setup image with this folder mounted, so they can write .env and data/.
+helper() {
+  docker image inspect anemones-setup >/dev/null 2>&1 || dc build setup
+  HOSTROOT=$(pwd -W 2>/dev/null || pwd)   # Git Bash on Windows needs the C:/ form
+  TTY=""; WRAP=""
+  if [ -t 0 ]; then
+    TTY="-it"
+    # Git Bash's own terminal needs winpty for an interactive container
+    [ -n "${MSYSTEM:-}" ] && command -v winpty >/dev/null 2>&1 && WRAP="winpty"
+  fi
+  # shellcheck disable=SC2086
+  MSYS_NO_PATHCONV=1 $WRAP docker run --rm $TTY -v "$HOSTROOT:/repo" -w /repo anemones-setup     python scripts/host_helper.py "$@"
+}
+
 case "$CMD" in
   stop)
     # shellcheck disable=SC2086
@@ -55,6 +74,33 @@ case "$CMD" in
   status)
     # shellcheck disable=SC2086
     dc ps $SERVICES
+    exit 0 ;;
+  telegram)
+    if helper telegram; then
+      echo "Restarting the controller and the watchdog so they read the new .env..."
+      dc up -d tank lifeguard >/dev/null
+      [ -n "$(docker ps -q --filter name=^tank-setup$)" ] && dc up -d setup >/dev/null
+      echo "Done. Real alerts now go to the same chat as the test."
+    fi
+    exit 0 ;;
+  golive)
+    if helper golive; then
+      echo "Restarting the controller so it follows the new calendar..."
+      dc restart tank >/dev/null
+      echo "Waiting for its first minute (up to 2 minutes)..."
+      i=0; while [ $i -lt 24 ]; do sleep 5; i=$((i+1))
+        [ -n "$(find data/tank_status.json -newermt '-30 seconds' 2>/dev/null)" ] && break; done
+      helper check || true
+    fi
+    exit 0 ;;
+  check)
+    dc ps $SERVICES
+    echo
+    helper check || true
+    if [ -n "$(docker ps -q --filter name=^tank-controller$)" ]; then
+      echo; echo "Plugs (reading only, nothing is switched):"
+      dc exec -T tank python /app/scripts/conductor.py health || true
+    fi
     exit 0 ;;
 esac
 

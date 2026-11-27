@@ -115,33 +115,37 @@ sh scripts/start.sh status
 
 After two or three minutes `tank-controller` should say `healthy`. `starting` means wait a little longer. `unhealthy` or `restarting` means go to [Troubleshooting](#troubleshooting).
 
+For a full check at any time (cue data, the controller, the thermometer reading, alerts, the safety layers and every plug, reading only):
+
+```
+sh scripts/start.sh check
+```
+
+It prints `ok` or `FIX` for each line, and the setup page shows the same result in step 3.
+
 ## 7. Onboarding page: choose your reef and set up the plugs
 
 Open <http://127.0.0.1:8098/>. It has five tabs, done in order:
 
 1. **Locale and target**: pick a reef (each is marked ready or half-ready, with its caveats), the species, the temperature curve, and how many days before the first spawning season you are starting. It shows a preview before it writes anything.
 2. **Plugs**: pair each plug in Smart Life, fetch the local keys from your Tuya cloud project, find the plugs on the network, name each one and give it a job (white light, blue light, moon, heater gate).
-3. **Inkbird**: only for an Inkbird read through an Android emulator. That path is fragile and not recommended for new users (see [NEW-USER-HARDWARE.md](NEW-USER-HARDWARE.md)); skip the tab and pick a temperature source from "Temperature and light sources" below.
-4. **Alerts**: the checklist for your Telegram bot and dead-man ping. The page runs without your `.env` values on purpose, so its live checks read empty; your alerts are tested from the controller once it is live.
-5. **Safety and settings**: every fail-safe (alarm band, over-temperature cutoff, dark protection, each plug's power-on state, and so on), each with its current value and why. None counts as done until you confirm it.
+3. **Heater**: your heater's own thermostat, a thermometer the controller can read, the optional heater gate plug, and a health check. Items with a ✓ tick themselves once `sh scripts/start.sh check` sees them working.
+4. **Alerts**: install Telegram, make a bot with BotFather, then run `sh scripts/start.sh telegram` in this folder. It asks for the bot token (typing is hidden), finds your chat, writes `.env`, restarts the controller and sends a test alert, and asks for the optional "computer is off" ping URL. The token never passes through the page.
+5. **Safety checks**: ten life-support questions in plain words come first (alerts, the too-hot cutoff, lamps that switch themselves off, your heater thermostat's own cutoff, and so on). Everything else keeps its default under "Other settings". None counts as done until you confirm it.
 
 ### Important: the onboarding page works on a practice copy
 
 Right now the onboarding page only writes to a **staging copy** of the data, the folder `staging/data`, never to the live `data` folder the controller reads. It also refuses to send any command to a real plug. This is deliberate: the page has been tested on a staging copy but not yet run against a live tank. So when you finish the tabs, nothing in the running controller has changed yet.
 
-To make your choices live, copy them across by hand:
+To make your choices live, run this in the controller folder:
 
-1. Stop the controller: `docker compose stop tank`
-2. Back up the live folder first (see [Back up](#back-up)).
-3. Copy these files from `staging/data` to `data` (same names, same sub-folders):
-   * `setup.json` (it records which calendar is active)
-   * `cue_params.json`
-   * your new calendar, `spawn_calendar_<start date>_<reef>.csv` **and** its `.meta.json`
-   * `tank_config.json`
-   * `tuya/plug_array.json` and `tuya/devices.json` (your plugs and their keys; open `plug_array.json` and check no plug says `"driver": "fake"`)
-4. Do not delete or edit the other `spawn_calendar_*` files already in `data`: they are checked at start (see `data_manifest_mismatch` below).
-5. Start the controller again: `docker compose start tank`
-6. Open the tracking page. Its header should now name your calendar and reef.
+```
+sh scripts/start.sh golive
+```
+
+It lists what will change (new, changed or the same) and asks before it copies anything: `setup.json`, `cue_params.json`, your new calendar and its `.meta.json`, `arc_selection.json` and `tank_config.json`, plus your plug list and device keys only when the practice copy holds real plugs (practice plugs are never copied over real ones). The files it replaces go to `data/backups/golive-<date>/`. Then it restarts the controller and runs the health check. Open the tracking page: its header should now name your calendar and reef.
+
+Do not delete or edit the other `spawn_calendar_*` files already in `data`: they are checked at start (see `data_manifest_mismatch` below).
 
 The outputs are still off at this point. Leave them off for at least a week and read the tracking page each day: does the plan match what your lights actually do? Then switch outputs on one channel at a time, lights first, heater gate last. The step-by-step order (with the tests the heater gate needs) is in [TURNING-OUTPUTS-ON.md](TURNING-OUTPUTS-ON.md).
 

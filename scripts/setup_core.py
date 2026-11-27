@@ -304,8 +304,13 @@ def load_species(data: str) -> dict:
                 "season_start": r["season_start"], "season_end": r["season_end"],
                 "season_peak": r["season_peak"],
                 "daf_lo": _float(r["daf_lo"]), "daf_hi": _float(r["daf_hi"]),
-                "min_p50": r["min_p50"]})
+                "min_p50": r["min_p50"],
+                "season_days": int(float(r["season_days"] or 0)),
+                "wide": float(r["season_days"] or 0) > WIDE_SEASON_DAYS})
     return out
+
+
+WIDE_SEASON_DAYS = 30   # a species season longer than this on record is flagged on the page
 
 
 def pad_window(w: dict, season_days: float, moon_days: float) -> dict:
@@ -662,7 +667,8 @@ def preview(data: str, choice: dict) -> dict:
                        "temp_c": season[0]["target_c"]})
     series = [{"d": r["date"], "t": float(r["target_c"]), "raw": float(r["raw_c"]),
                "pp": int(r["photoperiod_min"]), "w": r["watch"] == "true",
-               "ws": r["watch_season"] == "true", "moon": float(r["moon_illum_pct"])}
+               "ws": r["watch_season"] == "true", "moon": float(r["moon_illum_pct"]),
+               "dk": int(float(r.get("dark_min") or 0))}
               for r in rows]
     return {
         "basis": basis, "params_draft": os.path.basename(ppath),
@@ -1161,6 +1167,62 @@ def itc_status(data, docker=shutil.which("docker")) -> dict:
     return out
 
 
+HEATER_STEPS = [
+    ("docker", "Docker Desktop is installed and starts with the computer", [
+        "This page is running inside Docker, so Docker itself works.",
+        "Make sure it comes back after a restart: Docker Desktop, Settings, General, tick 'Start Docker Desktop when you sign in to your computer'. On Linux: sudo systemctl enable docker.",
+        "Memory: Docker's default is plenty. The whole controller uses about 200 MB.",
+        "Install links, if you are setting up another computer: Windows and Mac https://www.docker.com/products/docker-desktop/ , Linux https://docs.docker.com/engine/install/",
+    ]),
+    ("thermostat", "The heater runs on its own thermostat", [
+        "Plug the heater into a standalone heater controller with its own probe in the tank (any aquarium heater controller with a high-temperature cutoff).",
+        "Set its heat-on point to your tank's normal temperature, and its high alarm or cutoff a couple of degrees above.",
+        "Never plug the heater straight into a smart plug the controller switches. The controller may only block heat (the heater gate below), never be the only thing that stops it.",
+    ]),
+    ("thermometer", "The controller can read the water temperature", [
+        "Pick one: a DS18B20 probe on a Raspberry Pi or any Linux board (driver ds18b20_sysfs), a program that writes the reading to a file (jsonl), or a device that answers a web address with the reading (http_json). docs/QUICKSTART.md, 'Temperature and light sources', has the details.",
+        "Set it in step 5, 'Where the controller reads the water temperature'.",
+        "This step ticks itself when a fresh reading arrives: run sh scripts/start.sh check after you set it.",
+    ]),
+    ("gate", "Optional: a heater gate plug", [
+        "A smart plug in front of the heater thermostat lets the controller block heat when the water is too warm. It must come back ON after a power cut.",
+        "Give that plug the heater job in step 2, then follow docs/TURNING-OUTPUTS-ON.md step 5: the countdown test, the thermostat power-return test and the pull-the-plug test.",
+        "Skip this if you do not want the controller to touch the heater at all.",
+    ]),
+    ("check", "Run the health check", [
+        "In the controller folder run: sh scripts/start.sh check",
+        "It checks the containers, the cue tables, the thermometer reading, the plugs (reading only) and the alerts, and reports here. This step ticks itself when it passes.",
+    ]),
+]
+
+
+def heater_status(data) -> dict:
+    """Step 3 without the Inkbird emulator. Items tick themselves from what the
+    helper's health check reported; the rest are ticked by hand."""
+    st = load_state(data)
+    done = st.setdefault("heater", {})
+    chk = (host_status(data).get("check") or {})
+    auto = {"docker": True,
+            "thermometer": bool(chk.get("temp_ok")),
+            "check": bool(chk.get("ok"))}
+    return {"mode": "inkbird" if inkbird_in_use(data) else "generic",
+            "last_check": chk or None,
+            "steps": [{"id": k, "title": t, "steps": sx,
+                       "done": done.get(k) or (chk.get("checked_utc") if auto.get(k) and k != "docker" else None)
+                       or ("auto" if k == "docker" else None),
+                       "auto": k in auto}
+                      for k, t, sx in HEATER_STEPS]}
+
+
+def heater_check(data, item: str, done: bool) -> dict:
+    if item not in {k for k, _, _ in HEATER_STEPS}:
+        raise SetupError(f"no step {item!r}")
+    st = load_state(data)
+    st.setdefault("heater", {})[item] = now_utc() if done else None
+    save_state(data, st)
+    return {"ok": True}
+
+
 def itc_check(data, item: str, done: bool) -> dict:
     if item not in dict(ITC_CHECKLIST):
         raise SetupError(f"no checklist item {item!r}")
@@ -1175,31 +1237,29 @@ def itc_check(data, item: str, done: bool) -> dict:
 # TELEGRAM ALERTS
 # ---------------------------------------------------------------------------
 TG_STEPS = [
+    ("install", "Install Telegram on your phone", [
+        "iPhone: https://apps.apple.com/app/telegram-messenger/id686449807",
+        "Android: https://play.google.com/store/apps/details?id=org.telegram.messenger",
+        "Computer (optional): https://desktop.telegram.org/",
+        "Open it and sign up with your phone number.",
+    ]),
     ("bot", "Make a bot", [
-        "In Telegram, open a chat with @BotFather (the blue check mark one).",
-        "Send /newbot, give it a name (e.g. Anemone tank) and a username ending in bot.",
-        "BotFather replies with a token like 123456:ABC-DEF... Treat it like a password.",
+        "In Telegram, open a chat with @BotFather (the one with the blue check mark): https://t.me/BotFather",
+        "Send /newbot, give it a name (e.g. Reef tank) and a username ending in bot.",
+        "BotFather replies with a token like 123456:ABC-DEF... Keep it to yourself: it works like a password.",
+        "Send your new bot one message (e.g. hi) from the phone that should get the alerts.",
     ]),
-    ("env", "Put the token in .env", [
-        "Open the .env file next to docker-compose.yml (create it if missing).",
-        "Add a line TELEGRAM_BOT_TOKEN=<the token>. Never paste it into this page, a chat or a commit.",
-        "Restart the tank service so it reads it: docker compose up -d tank  (names only that service).",
+    ("helper", "Run the alert helper", [
+        "In the controller folder run: sh scripts/start.sh telegram",
+        "It asks for the token (typing is hidden), finds your chat from the message you sent, writes both into .env, restarts the controller and sends a test alert.",
+        "This step ticks itself when the test alert went out. The token never passes through this page.",
     ]),
-    ("chat", "Find your chat id", [
-        "Send any message (e.g. hi) to your new bot from the phone that should get alerts.",
-        "Click 'Find chat ids' below: it asks Telegram which chats wrote to the bot.",
-        "Add TELEGRAM_CHAT_ID=<the number> to .env and restart the tank service again.",
-    ]),
-    ("test", "Send a test alert", [
-        "Click 'Send test alert'. It goes out through the same code as real alerts.",
-        "If it does not arrive: the token or chat id is wrong, or you never messaged the bot.",
-    ]),
-    ("deadman", "Add a dead-man ping (recommended)", [
-        "An alert cannot say 'the controller is dead'. A dead-man service can: make a free check at healthchecks.io (period 5 min, grace 10 min).",
-        "Put its ping URL in .env as TANK_DEADMAN_URL and restart the tank service. healthchecks.io then messages you when pings stop.",
+    ("deadman", "Add a 'computer is off' ping (recommended)", [
+        "An alert cannot say the computer is dead. A free service can: make a check at https://healthchecks.io (period 5 min, grace 10 min).",
+        "The helper asks for its ping URL at the end (or run sh scripts/start.sh telegram again). healthchecks.io then messages you when the pings stop.",
     ]),
     ("feed", "Optional: the daily feed bot", [
-        "tank-feed posts a noon summary on a second bot (token in .env as reeflive_token, chat TELEGRAM_FEED_CHAT_ID).",
+        "A noon summary on a second bot (token in .env as reeflive_token, chat TELEGRAM_FEED_CHAT_ID).",
         "Keep it separate: a chatty feed must not bury real alerts.",
     ]),
 ]
@@ -1208,16 +1268,22 @@ TG_STEPS = [
 def telegram_status(data) -> dict:
     import common
     st = load_state(data)
+    hs = host_status(data)
+    tg, dm = hs.get("telegram") or {}, hs.get("deadman") or {}
+    auto = {"helper": tg.get("test_delivered") and tg.get("configured"),
+            "bot": tg.get("configured"), "install": tg.get("configured"),
+            "deadman": dm.get("configured")}
     return {
-        "token_set": bool(os.environ.get("TELEGRAM_BOT_TOKEN")),
-        "chat_set": bool(os.environ.get("TELEGRAM_CHAT_ID")),
-        "deadman_set": bool(os.environ.get("TANK_DEADMAN_URL")),
+        "token_set": bool(os.environ.get("TELEGRAM_BOT_TOKEN") or tg.get("configured")),
+        "chat_set": bool(os.environ.get("TELEGRAM_CHAT_ID") or tg.get("configured")),
+        "deadman_set": bool(os.environ.get("TANK_DEADMAN_URL") or dm.get("configured")),
+        "helper": {"telegram": tg or None, "deadman": dm or None},
         "feed_set": bool(os.environ.get("TELEGRAM_FEED_BOT_TOKEN") or os.environ.get("reeflive_token")),
         "channels": common.alert_channels(),
-        "note": ("this container was started without the alert variables (staging/sandbox), "
-                 "so the checks here read empty by design") if staging() else None,
+        "note": ("this page never sees the token: sh scripts/start.sh telegram sets it up and reports "
+                 "here what it did") if staging() else None,
         "steps": [{"id": k, "title": t, "steps": sx,
-                   "done": st.setdefault("telegram", {}).get(k)} for k, t, sx in TG_STEPS],
+                   "done": st.setdefault("telegram", {}).get(k) or auto.get(k)} for k, t, sx in TG_STEPS],
         "last_test": st.get("telegram", {}).get("last_test"),
     }
 
@@ -1279,11 +1345,11 @@ DECISIONS = [
     ("cooling_on", "Fail-safes", "Over-temperature cutoff on", "config:outputs.cooling.enabled", "bool",
      "Cuts the listed plugs when the tank runs hot (tank_cool.py)."),
     ("cooling_setpoint", "Fail-safes", "Cutoff set point (C)", "config:outputs.cooling.setpoint", "num_or_text",
-     "Fixed 28.0 since 2026-11-06; 'plan' would cut every afternoon because lamps hold the tank 1-2 C above plan."),
+     "A fixed temperature works best: 'plan' follows the daily target and can cut every warm afternoon, because lamps hold a tank a degree or two above plan."),
     ("cooling_above", "Fail-safes", "Cut at set point + (C)", "config:outputs.cooling.cutoff_above_c", "num",
      "With 28.0 this cuts at 28.6 C (83.5 F), resumes 0.5 C below."),
     ("cooling_plugs", "Fail-safes", "Plugs the cutoff may cut", "config:outputs.cooling.plugs", "list",
-     "plug-10, the 200 W white_plus lamp (the biggest heat source)."),
+     "The plugs that add the most heat, usually the brightest lamps."),
     ("lamp_deadman", "Fail-safes", "Lamp backstop on", "config:outputs.lamp_deadman.enabled", "bool",
      "Each lamp ON arms the plug's own countdown, so a dead controller cannot leave lamps on. Dimmers are not covered."),
     ("lamp_deadman_s", "Fail-safes", "Lamp backstop countdown (s)", "config:outputs.lamp_deadman.revert_after_s", "num",
@@ -1299,7 +1365,7 @@ DECISIONS = [
     ("autoheal", "Fail-safes", "Autoheal sidecar restarts a hung controller", "check", "check",
      "compose service tank-autoheal, label anemones.autoheal on tank only."),
     ("inkbird_alarm", "Fail-safes", "Inkbird's own high/low alarm set on the device", "check", "check",
-     "Independent of the PC and the emulator."),
+     "Your heater thermostat's own high-temperature alarm or cutoff, set on the device itself. It works even when this computer is off."),
     ("gfci", "Fail-safes", "GFCI and drip loops on every tank cord", "check", "check",
      "Hardware fail-safe; nothing in software replaces it."),
     ("pi_case", "Fail-safes", "Sensor board (Raspberry Pi or similar, if you use one) in a case, away from salt spray", "check", "check",
@@ -1319,7 +1385,7 @@ DECISIONS = [
     ("temp_source", "Sensors", "Temperature source (driver)", "config:inputs.temp.driver", "text",
      "Inkbird feed (jsonl from the emulator) or a probe on a Pi (ds18b20_sysfs, jsonl, http_json); none = no temperature feed yet (a warning, and the over-temperature cutoff cannot act)."),
     ("probe_offset", "Sensors", "Pi probe offset (C)", "config:inputs.probe_temp.offset_c", "num",
-     "Only if you use a second probe: its difference from a trusted thermometer. (The first install's probe read 4.05 C below the Inkbird.)"),
+     "Only if you use a second probe: its difference from a trusted thermometer."),
     ("temp_calibrated", "Sensors", "Temperature counts as calibrated", "config:limits.temp_calibrated", "bool",
      "No written calibration record for the Inkbird yet."),
     ("dark_lux", "Sensors", "Light-leak limit in full dark (lux)", "config:limits.dark_lux_max", "num",
@@ -1336,15 +1402,15 @@ DECISIONS = [
     ("ch_moon", "Outputs", "Moon channel switched", "config:outputs.channels.moon", "bool",
      "Interim lamp on the dimmer is far too bright (8.4 lux at 1 percent vs 0.1-0.3 target)."),
     ("white_plus", "Cues", "White-plus threshold (fraction of day curve)", "config:plan.white_plus.threshold", "num",
-     "0.75: the 200 W lamp only near midday."),
+     "Above this fraction of the day's light curve the extra-bright lamp joins in (0.75: only around midday)."),
     ("dark_source", "Cues", "Full-dark definition", "config:plan.dark_source", "text",
      "astro: sun below -18 deg and moon down."),
     ("moon_lux", "Cues", "Moon target at the sensor (lux)", "config:plan.moon_lux_range", "pair",
-     "0.1 to 0.3 lux. Bright moonlight may suppress (hub X001)."),
+     "0.1 to 0.3 lux. Moonlight much brighter than a real moon may hold spawning back instead of cueing it."),
     ("hourly", "Cues", "Hourly temperature offsets (C, 24 values)", "config:plan.hourly_offsets_c", "list",
-     "Hand-made placeholder, not from a source."),
+     "No measured daily pattern yet: these are hand-made values, not from a source. Flat zeros are the safe choice."),
     ("itc_cue", "Cues", "Cue-driven Inkbird T1/T2 writes", "config:itc_setpoints.enabled", "bool",
-     "Writes through the emulator; 29 real writes in 4 days at the audit."),
+     "Moves the Inkbird's set points with the cue table, through its app in the emulator."),
     # --- life support: redundancy, the independent watchdog, safe mode ---
     ("sensor_failover", "Life support", "Backup thermometer takes over", "config:limits.redundancy.failover", "bool",
      "When the main thermometer cannot be read, the cutoff, the heater gate and the alarm act on the second one "
@@ -1386,11 +1452,48 @@ FUNCTIONS = {
     "unassigned": ("Not used / watch only", "read but never switched"),
 }
 
-# Decisions that keep the animals alive. Shown first.
-CRITICAL = {"alarm_band", "cooling_on", "cooling_setpoint", "cooling_above", "cooling_plugs",
-            "lamp_deadman", "lamp_deadman_s", "heater_gate", "autoheal", "inkbird_alarm",
-            "gfci", "pi_case", "alerts_channel", "deadman", "temp_source", "probe_offset",
-            "temp_calibrated", "band", "step", "sensor_failover", "lifeguard_on", "safe_mode"}
+# Life support: the only rows asked up front, in plain words (label, why).
+# Everything else keeps its default under "Other settings".
+UPFRONT = {
+    "temp_source": ("Where the controller reads the water temperature",
+                    "Without a thermometer the controller cannot see the water, and the too-hot cutoff below cannot work."),
+    "alarm_band": ("Send an alert if the water goes outside this range",
+                   "Pick a range a little wider than your target, so a normal day never sets it off."),
+    "cooling_on": ("Switch the lamps off if the water gets too hot",
+                   "Lamps heat the water. If it gets too warm, the controller turns them off until it cools down."),
+    "cooling_setpoint": ("The temperature that counts as too hot",
+                         "The lamps go off a little above this and come back on once the water is below it again."),
+    "lamp_deadman": ("Lamps switch themselves off if this computer stops",
+                     "Each lamp plug runs its own timer. If the controller stops refreshing it, the lamp turns off by itself, so it cannot stay on all night."),
+    "inkbird_alarm": ("Your heater thermostat has its own high-temperature cutoff or alarm",
+                      "Set on the thermostat itself. It is the protection that still works when this computer, the network or the controller is down."),
+    "gfci": ("Every tank power cord has a drip loop and a safety switch (GFCI/RCD)",
+             "Water and mains power: a drip loop keeps water off the socket and a GFCI or RCD cuts the power if something leaks."),
+    "alerts_channel": ("Phone alerts are set up",
+                       "Without them nobody hears about a problem until they look. Step 4 sets them up."),
+    "deadman": ("Tell me if this computer goes off",
+                "An alert cannot say the computer is dead. A free outside service (healthchecks.io) can: it messages you when the pings stop."),
+    "safe_mode": ("Turn the lamps off by themselves in an emergency",
+                  "If the water passes the hard limits or the controller goes quiet, the watchdog turns every lamp off and leaves the heater to its own thermostat."),
+}
+CRITICAL = set(UPFRONT)
+# Inkbird rows: shown only on a tank that reads an Inkbird through the emulator.
+INKBIRD_ONLY = {"itc_cue", "itc_bounds", "itc_interval", "itc_watch"}
+
+
+def inkbird_in_use(data: str) -> bool:
+    """True on a tank that reads the Inkbird ITC-306A through the Android
+    emulator (the first tank). The public release does not ship that reader."""
+    cfg = _read_json(os.path.join(data, "tank_config.json"), {}) or {}
+    t = (cfg.get("inputs") or {}).get("temp") or {}
+    return ("itc306a" in str(t.get("path", "")) or str(t.get("label", "")).lower() == "inkbird"
+            or os.path.exists(os.path.join(data, "itc", "service.json")))
+
+
+def host_status(data: str) -> dict:
+    """What the host-side helper (sh scripts/start.sh telegram | golive | check)
+    last did, written to <data>/host_status.json. It never holds a secret."""
+    return _read_json(os.path.join(data, "host_status.json"), {}) or {}
 
 
 def _plug_decisions(arr, cfg) -> list:
@@ -1402,7 +1505,7 @@ def _plug_decisions(arr, cfg) -> list:
         n, role = e.get("name"), e.get("role", "unassigned")
         label = FUNCTIONS.get(role, (role, ""))[0]
         grp = f"{label}: {n}"
-        hot = "critical" if n in cut else "function"
+        hot = "function"
         if role in ("white", "white_plus", "blue"):
             out += [
                 (f"{n}.power_on", grp, f"{n} comes back OFF after a power cut", f"pcheck:{n}", "check",
@@ -1477,7 +1580,10 @@ def decisions(data) -> list:
     dflt = _defaults()
     st = load_state(data)["decisions"]
     out = []
-    specs = [(*d, "critical" if d[0] in CRITICAL else "other") for d in DECISIONS]
+    ink = inkbird_in_use(data)
+    hs = host_status(data)
+    specs = [(*d, "critical" if d[0] in CRITICAL else "other") for d in DECISIONS
+             if ink or d[0] not in INKBIRD_ONLY]
     specs += _plug_decisions(arr, cfg)
     cut = set(((cfg.get("outputs") or {}).get("cooling") or {}).get("plugs") or [])
     for did, group, label, where, typ, why, tier in specs:
@@ -1509,14 +1615,19 @@ def decisions(data) -> list:
             value = hit[0].get(field) if hit else None
             source = f"plug_array.json ({hit[0]['name']})" if hit else f"no plug with role {role}"
         elif kind == "env":
-            value = bool(os.environ.get(path))
-            source = "environment (.env)"
+            helper = {"TELEGRAM_BOT_TOKEN": (hs.get("telegram") or {}).get("configured"),
+                      "TANK_DEADMAN_URL": (hs.get("deadman") or {}).get("configured")}.get(path)
+            value = bool(os.environ.get(path) or helper)
+            source = "environment (.env)" + (" (set by sh scripts/start.sh)" if helper and not os.environ.get(path) else "")
         rec = st.get(did)
         stale = bool(rec) and kind not in ("check", "pcheck") and rec.get("value") != value
         if kind in ("check", "pcheck") and rec and rec.get("value") is not True:
             rec = {**rec, "confirmed_utc": None}       # "not yet" is not a yes
+        tech = label
+        if did in UPFRONT:
+            label, why = UPFRONT[did]
         out.append({"id": did, "group": group, "label": label, "where": where, "type": typ,
-                    "why": why, "value": value, "source": source, "tier": tier,
+                    "why": why, "value": value, "source": source, "tier": tier, "tech_label": tech,
                     "plug": path.partition(":")[0] if kind in ("pfield", "pcheck", "derived") else None,
                     "editable": kind in ("config", "plug", "pfield"),
                     "confirmed": rec and not stale and rec.get("confirmed_utc"),
@@ -1673,7 +1784,10 @@ def overview(data) -> dict:
         "today": followed_today(data),
         "plugs": {"count": len(plugs), "roles": {p["name"]: p.get("role") for p in plugs},
                   "saved": st["devices"].get("array_saved_utc")},
-        "itc": {"done": sum(1 for v in itc.values() if v), "of": len(ITC_CHECKLIST)},
+        "itc": ({"done": sum(1 for v in itc.values() if v), "of": len(ITC_CHECKLIST), "mode": "inkbird"}
+                if inkbird_in_use(data) else
+                {"done": sum(1 for x in heater_status(data)["steps"] if x["done"]), "of": len(HEATER_STEPS),
+                 "mode": "generic"}),
         "decisions": {"confirmed": sum(1 for d in dec if d["confirmed"]), "of": len(dec),
                       "changed_since": sum(1 for d in dec if d["changed_since_confirm"]),
                       "critical": {"confirmed": sum(1 for d in dec if d["tier"] == "critical" and d["confirmed"]),

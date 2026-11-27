@@ -372,7 +372,7 @@ def context(data: str) -> dict:
         ctx = {"key": key, "data": data, "cal_path": cal_path, "cal": cal,
                "params": params, "params_path": ppath, "plan_cfg": plan_cfg,
                "tz": tank_plan.tank_tz(params), "ink_path": ink,
-               "ink_label": temp_in.get("label") or "Inkbird",
+               "ink_label": temp_in.get("label") or "Thermometer",
                "setup": _read_json(setup_path), "notes": notes,
                "cache": cache_dir(data)}
         _ctx_mem[data] = ctx

@@ -489,7 +489,7 @@ function renderYear() {
 /* ------------------------------------------------------------------- recent */
 /* The last 24 hours: plan against the tank. The probe is drawn only when it disagrees with
    the Inkbird by more than the tolerance; lux, deviation and lamp lanes are gone. */
-const TOL_F = 1.0;              // "on plan" = Inkbird within ±1 °F of the plan
+const TOL_F = 1.0;              // "on plan" = the thermometer within ±1 °F of the plan
 
 function onPlan() {
   const C = REC.cols; let n = 0, w = 0;
@@ -498,7 +498,7 @@ function onPlan() {
 }
 function renderRecent() {
   const op = REC && onPlan();
-  $("#recsum").textContent = !REC ? "" : op ? `On plan ${Math.round(op.within * 100)}% of the last 24 hours (within ±${TOL_F} °F).` : "No Inkbird readings in the last 24 hours.";
+  $("#recsum").textContent = !REC ? "" : op ? `On plan ${Math.round(op.within * 100)}% of the last 24 hours (within ±${TOL_F} °F).` : `No ${REC.ink_label || "thermometer"} readings in the last 24 hours.`;
   renderProblems(); renderHealth();
   const box = $("#recent"); box.innerHTML = "";
   if (!REC || !$("#d-recent").open) return;
@@ -555,7 +555,7 @@ function renderRecent() {
   /* end labels with the latest value */
   if (!narrow) {
     const last = (vals) => { for (let i = n - 1; i >= 0; i--) if (vals[i] != null) return [i, vals[i]]; return null; };
-    const ends = [["Plan", plan, "var(--c-plan)"], [REC.ink_label || "Inkbird", ink, "var(--c-ink)"]].concat(showProbe ? [["Probe", probe, "var(--c-probe)"]] : [])
+    const ends = [["Plan", plan, "var(--c-plan)"], [REC.ink_label || "Thermometer", ink, "var(--c-ink)"]].concat(showProbe ? [["Probe", probe, "var(--c-probe)"]] : [])
       .map(([name, vals, c]) => { const l = last(vals); return l && { name, c, i: l[0], v: l[1], y: Y1(l[1]) }; }).filter(Boolean).sort((a, b) => a.y - b.y);
     for (let j = 1; j < ends.length; j++) ends[j].ly = Math.max(ends[j].y, (ends[j - 1].ly ?? ends[j - 1].y) + 14);
     if (ends.length) ends[0].ly = ends[0].y;
@@ -569,7 +569,7 @@ function renderRecent() {
       txt(svg, lx, e.ly + 4, `${f1(e.v, 1)}`, "start", { style: "fill:var(--ink);font-weight:600;font-size:12px" });
     }
   }
-  $("#rleg").innerHTML = `<span class="ln" style="--sw:var(--c-plan)">plan</span><span class="ln" style="--sw:var(--c-ink)">${esc(REC.ink_label || "Inkbird")}</span>` +
+  $("#rleg").innerHTML = `<span class="ln" style="--sw:var(--c-plan)">plan</span><span class="ln" style="--sw:var(--c-ink)">${esc(REC.ink_label || "Thermometer")}</span>` +
     (showProbe ? `<span class="ln" style="--sw:var(--c-probe)">probe (disagrees)</span>` : "") +
     `<span style="--sw:color-mix(in srgb, var(--c-plan) 22%, transparent)">±${TOL_F} °F of plan</span>`;
 
@@ -588,7 +588,7 @@ function renderRecent() {
     for (const [d, vals] of dots) { if (vals[i] == null) d.setAttribute("visibility", "hidden"); else { d.setAttribute("cx", x); d.setAttribute("cy", Y1(vals[i])); d.setAttribute("visibility", "visible"); } }
     const dv = ink[i] == null || plan[i] == null ? null : ink[i] - plan[i];
     tip.innerHTML = `<b>${fmtLocal(C.t[i], { weekday: "short", hour: "2-digit", minute: "2-digit" })}</b>` +
-      vr(ink[i] == null ? "–" : f1(ink[i], 1) + " °F", esc(REC.ink_label || "Inkbird")) +
+      vr(ink[i] == null ? "–" : f1(ink[i], 1) + " °F", esc(REC.ink_label || "Thermometer")) +
       vr(plan[i] == null ? "–" : f1(plan[i], 1) + " °F", "Plan") +
       vr(dv == null ? "–" : `${dv > 0 ? "+" : dv < 0 ? "−" : "±"}${f1(Math.abs(dv), 1)} °F`, "vs plan");
     tip.style.display = "block";

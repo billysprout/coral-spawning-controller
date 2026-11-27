@@ -9,12 +9,14 @@
   --bg: #f6f7f8; --panel: #ffffff; --ink: #1c2126; --muted: #5d6873; --line: #dde2e7;
   --accent: #0f6e8c; --accent-ink: #ffffff; --ok: #1f7a4d; --warn: #9a6200; --bad: #b3261e;
   --soft: #eef3f6; --chart-t: #0f6e8c; --chart-raw: #9fb3c0; --chart-w: #c2410c;
+  --chart-season: rgba(194, 65, 12, 0.10); --chart-day: #f2d27a; --chart-dark: #1f2f45; --chart-dusk: #c9d3dc;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #111518; --panel: #1a2025; --ink: #e5e9ec; --muted: #9aa6b0; --line: #2c343b;
     --accent: #4fb3d4; --accent-ink: #0b1215; --ok: #5cc28e; --warn: #e0a84a; --bad: #ef7d74;
     --soft: #212a31; --chart-t: #4fb3d4; --chart-raw: #4a5c69; --chart-w: #f08a4b;
+    --chart-season: rgba(240, 138, 75, 0.14); --chart-day: #b8963a; --chart-dark: #05080c; --chart-dusk: #3a4651;
   }
 }
 * { box-sizing: border-box; }
@@ -134,7 +136,7 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
   <button data-tab="home" class="on">Home</button>
   <button data-tab="cal">1 · Spawning calendar<span class="badge" id="b-cal"></span></button>
   <button data-tab="dev">2 · Smart plugs<span class="badge" id="b-dev"></span></button>
-  <button data-tab="itc">3 · Heater controller<span class="badge" id="b-itc"></span></button>
+  <button data-tab="itc">3 · Heater<span class="badge" id="b-itc"></span></button>
   <button data-tab="tg">4 · Phone alerts<span class="badge" id="b-tg"></span></button>
   <button data-tab="dec">5 · Safety checks<span class="badge" id="b-dec"></span></button>
 </nav>
@@ -151,7 +153,7 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
         <li>About 30 to 60 minutes.</li>
         <li>For step 1: nothing but this page. It is a few questions, then a preview you check.</li>
         <li>For step 2: your Tuya / Smart Life plugs paired in the app, and a computer to make a free Tuya developer account.</li>
-        <li>For step 3: the Inkbird ITC-306A heater controller and its app in the emulator.</li>
+        <li>For step 3: your heater's own thermostat, and a thermometer the controller can read.</li>
         <li>For step 4 (recommended): the Telegram app on your phone.</li>
       </ul>
       <p>You can stop at any point: every step is saved and this page picks up where you left off.</p>
@@ -234,22 +236,18 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
       <div><button class="sec" id="lead-rec">Use the recommended number</button></div>
     </div>
     <div class="why" id="lead-why"></div>
-    <details><summary>Advanced: place the season another way, or change the calendar length</summary>
-      <div class="row">
-        <div><label>How to place the season</label>
-          <select id="mode"><option value="lead">days until the spawning season (recommended)</option>
-            <option value="cue_date">the reef date to play on the first day</option><option value="offset">a raw offset in days</option></select></div>
-        <div><label>Calendar length (days)</label><input id="days" value="730" size="6"></div>
-      </div>
-      <div class="why">730 days (two years) is the default. The tracking page warns before the calendar runs out.</div>
-    </details>
+    <div class="scroll"><svg id="lead-chart" width="100%" height="74" viewBox="0 0 1000 74" preserveAspectRatio="none" role="img" aria-label="The next two years from the first day, with the reef's spawning seasons shaded"></svg></div>
+    <div class="sub">The next two years from your first day. Shaded: the reef's spawning season, where your answer puts it. It moves as you type.</div>
+    <!-- kept for the preview request; the calendar always places the season by lead and runs two years -->
+    <div hidden><select id="mode"><option value="lead" selected>lead</option><option value="cue_date">cue_date</option><option value="offset">offset</option></select>
+      <input id="days" value="730"></div>
   </div>
 
   <div class="card wstep" data-w="4">
     <h2>Your tank's clock and safety limits</h2>
     <div class="intro"><p>The reef's sunrise and sunset are replayed around <b>your</b> midday, so the lights come on at sensible local hours. A rough location is enough: the nearest city.</p></div>
     <div class="row">
-      <div><label>Time zone</label><input id="ts-tz" size="22"></div>
+      <div><label>Time zone (start typing a city or region)</label><input id="ts-tz" size="26" list="tz-list" autocomplete="off"><datalist id="tz-list"></datalist></div>
       <div><button class="sec" id="ts-mine">Use this computer's time zone</button></div>
     </div>
     <div class="why" id="tz-why"></div>
@@ -275,8 +273,8 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
     <div id="pv" hidden>
       <ul class="plain" id="pv-plain"></ul>
       <div id="pv-warn"></div>
-      <div class="scroll"><svg id="chart" width="100%" height="190" viewBox="0 0 1000 190" preserveAspectRatio="none" role="img" aria-label="Water target over the calendar, in degrees Fahrenheit"></svg></div>
-      <div class="sub">Blue line: the daily water target (°F). Grey: what the reef did, before your safety limits. Orange ticks: watch nights.</div>
+      <div class="scroll"><svg id="chart" width="100%" height="270" viewBox="0 0 1000 270" preserveAspectRatio="none" role="img" aria-label="Water target over the calendar in degrees Fahrenheit, with each day's daylight and full dark below"></svg></div>
+      <div class="sub">Top: the daily water target (°F, blue), what the reef did before your safety limits (grey), the spawning season (shaded) and watch nights (orange ticks). Bottom strip: each day's 24 hours, daylight (yellow) and full dark with no sun or moon (dark blue).</div>
       <h3>Watch nights</h3><div class="scroll"><table class="tbl" id="pv-watch"></table></div>
       <details><summary>Technical details</summary>
         <div id="pv-sum" class="kv"></div>
@@ -371,10 +369,12 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
 
 <!-- 3 -->
 <section id="itc">
-  <div class="card intro"><h2>Step 3 · Heater controller (Inkbird ITC-306A)</h2>
-    <p>The Inkbird holds the water at its set point and reads the tank temperature. The controller reads it through the Inkbird app running in an emulator. Work through the checklist below and tick each item when it is done.</p></div>
-  <div class="card"><h2>Inkbird status</h2><div id="itc-st" class="kv"></div></div>
-  <div class="card guide"><h2>Inkbird in the emulator, step by step</h2><div id="itc-list"></div>
+  <div class="card intro"><h2 id="itc-h">Step 3 · Heater and thermometer</h2>
+    <p id="itc-intro">The heater keeps the water warm on its own thermostat; the controller only watches it and, if you choose, can block heat when the water is too warm. The controller also needs a thermometer it can read. Work through the list; items with a ✓ tick themselves.</p></div>
+  <div class="card" id="ht-card"><h2>Health check</h2><div id="ht-st" class="kv"></div></div>
+  <div class="card guide" id="ht-guide"><h2>Heater and thermometer, step by step</h2><div id="ht-list"></div></div>
+  <div class="card" id="itc-card" hidden><h2>Inkbird status</h2><div id="itc-st" class="kv"></div></div>
+  <div class="card guide" id="itc-guide"><h2 id="itc-guide-h">Inkbird in the emulator, step by step</h2><div id="itc-list"></div>
     <div class="stepnav"><button class="sec" data-go="dev">← Step 2</button><span class="sp"></span><button class="act" data-go="tg">Next: phone alerts →</button></div></div>
 </section>
 
@@ -383,6 +383,7 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 13px; }
   <div class="card intro"><h2>Step 4 · Phone alerts (recommended)</h2>
     <p>If the water gets too hot or cold, a plug stops answering or the controller stops, a message goes to your phone through Telegram. Without it, nobody hears about a problem until they look.</p></div>
   <div class="card"><h2>Alert status</h2><div id="tg-st" class="kv"></div>
+    <div class="why">Set up with one command in the controller folder: <code>sh scripts/start.sh telegram</code>. It asks for the bot token (hidden), finds your chat, writes <code>.env</code>, restarts the controller and sends a test alert. The token never passes through this page.</div>
     <div style="margin-top:8px"><button class="sec" id="btn-chats">Find chat ids</button>
       <button class="sec" id="btn-tgtest">Send test alert</button> <span class="msg" id="msg-tg"></span></div>
     <div class="scroll"><table class="tbl" id="tg-chats"></table></div></div>
@@ -496,8 +497,14 @@ async function loadPreflight() {
     const p = await api("/api/preflight");
     const on = p.layers.filter((x) => x.state !== "off");
     $("home-pre-sum").textContent = `${on.filter((x) => x.state === "go").length} of ${on.length} ready`;
-    $("home-pre").innerHTML = p.layers.map((x) => `<div><span class="gopill ${esc(x.state)}">${GOPILL[x.state] || esc(x.state)}</span></div>
-      <div><b>${esc(x.name)}</b> <span class="muted">${esc(x.detail)}</span></div>`).join("");
+    const FIX = {sensors: ["itc", "step 3"], failover: ["dec", "step 5"], cutoff: ["dec", "step 5"], lamp_backstop: ["dec", "step 5"],
+                 heater_gate: ["dev", "step 2"], controller: [null, "sh scripts/start.sh check"], safe_mode: ["dec", "step 5"],
+                 alerts: ["tg", "step 4"], deadman: ["tg", "step 4"], disk: [null, "free some disk space"]};
+    $("home-pre").innerHTML = p.layers.map((x) => { const f = FIX[x.id];
+      const link = x.state === "go" || !f ? "" : f[0] ? ` <a href="#${f[0]}" data-go="${f[0]}">fix in ${esc(f[1])} →</a>` : ` <span class="muted">· ${linkify(f[1])}</span>`;
+      return `<div><span class="gopill ${esc(x.state)}">${GOPILL[x.state] || esc(x.state)}</span></div>
+      <div><b>${esc(x.name)}</b> <span class="muted">${esc(x.detail)}</span>${link}</div>`; }).join("") +
+      `<div></div><div class="muted">Full health check from the controller folder: ${linkify("sh scripts/start.sh check")}</div>`;
     $("home-pre-card").hidden = false;
   } catch (e) { $("home-pre-card").hidden = true; }
 }
@@ -524,7 +531,7 @@ async function loadHome() {
   const steps = [
     ["cal", "Spawning calendar", c ? "done" : "not started", !!c],
     ["dev", "Smart plugs", o.plugs.saved ? `${o.plugs.count} plugs saved` : "not saved yet", !!o.plugs.saved],
-    ["itc", "Heater controller (Inkbird)", `${o.itc.done} of ${o.itc.of} checklist items`, o.itc.done >= o.itc.of],
+    ["itc", o.itc.mode === "inkbird" ? "Heater controller (Inkbird)" : "Heater and thermometer", `${o.itc.done} of ${o.itc.of} checklist items`, o.itc.done >= o.itc.of],
     ["tg", "Phone alerts (recommended)", `${o.telegram.done} of ${o.telegram.of} steps`, o.telegram.done >= o.telegram.of],
     ["dec", "Safety checks", `${crit.confirmed} of ${crit.of} critical items confirmed`, crit.confirmed >= crit.of && crit.of > 0],
   ];
@@ -610,7 +617,7 @@ function drawSpecies() {
     show.map((s) => `<tr class="sp-row${s.species === SP ? " sel" : ""}"><td><input type="radio" name="sp" value="${esc(s.species)}" ${s.species === SP ? "checked" : ""} aria-label="${esc(s.species)}"></td>
       <td><i>${esc(s.species)}</i>${s.padded ? ' <span class="pill rec">Recommended</span>' : ""}</td><td>${s.n_nights} <span class="muted">(${esc(s.years)})</span></td>
       <td>${esc(md(s.season_start))} – ${esc(md(s.season_end))}</td><td>${esc(s.daf_lo)}–${esc(s.daf_hi)}</td>
-      <td class="${s.grade === "thin" ? "warn" : ""}">${esc(s.grade === "thin" ? "thin: widen it" : s.grade)}</td></tr>`).join("");
+      <td class="${s.grade === "thin" || s.wide ? "warn" : ""}">${esc(s.grade === "thin" && !s.wide ? "thin: widen it" : s.grade)}${s.wide ? `<br>wide: ${s.season_days} days` : ""}</td></tr>`).join("");
   $("sp-more").textContent = all.length > show.length ? `showing ${show.length} of ${all.length}; type in "Find a species" to see the rest` : "";
   $("sp").querySelectorAll("input[name=sp]").forEach((e) => e.onchange = () => {
     SP = e.value; $("genus").value = "";
@@ -632,8 +639,9 @@ function aimName() { return SP ? `<i>${esc(SP)}</i>` : $("genus").value ? `genus
 function aim() {
   const t = target();
   const pads = (+$("pad-s").value || +$("pad-m").value) ? `, widened by ±${esc($("pad-s").value)} days (season) and ±${esc($("pad-m").value)} days (moon)` : "";
-  const thin = t.grade === "thin" ? ' <span class="warn">This species has very few records: widen the window (Advanced).</span>' : "";
-  $("aim").innerHTML = `Aiming at ${aimName()}: on the reef it spawns ${esc(md(t.season_start))} – ${esc(md(t.season_end))}, ${esc(t.daf_lo)}–${esc(t.daf_hi)} nights after the full moon${pads}.${thin}`;
+  const thin = t.grade === "thin" && !(SP && t.wide) ? ' <span class="warn">This species has very few records: widen the window (Advanced).</span>' : "";
+  const wide = SP && t.wide ? ` <span class="warn">Its spawning season on record is ${t.season_days} days long, from ${t.n_nights} night${t.n_nights === 1 ? "" : "s"}: the records are spread out (different sites or years, or two seasons a year). A season that long gives many watch nights and a weak seasonal cue. A species with more records, or the genus, is usually a better aim.</span>` : "";
+  $("aim").innerHTML = `Aiming at ${aimName()}: on the reef it spawns ${esc(md(t.season_start))} – ${esc(md(t.season_end))}, ${esc(t.daf_lo)}–${esc(t.daf_hi)} nights after the full moon${pads}.${thin}${wide}`;
 }
 function seasonDays(a, b) {
   const d = (s) => { const [m, dd] = s.split("-").map(Number); return Math.round((Date.UTC(2027, m - 1, dd) - Date.UTC(2027, 0, 1)) / 864e5); };
@@ -650,6 +658,7 @@ function setLead() {
   leadWhy();
 }
 function leadWhy() {
+  leadChart();
   if ($("mode").value !== "lead") { $("lead-why").textContent = ""; return; }
   const m = recLead(), v = +$("mode-val").value;
   $("mode-label").textContent = "Days until the spawning season (0–365)";
@@ -658,6 +667,26 @@ function leadWhy() {
     (v > m ? ` <span class="warn">More than ${m} days puts the start inside the season itself (the reef year repeats).</span>` : "");
 }
 $("mode-val").oninput = leadWhy;
+$("start").addEventListener("input", leadChart);
+function leadChart() {   // instant: no server call, just where the seasons fall from the first day
+  const el = $("lead-chart"); if (!el || !LOC) return;
+  const t = target(), L = seasonDays(t.season_start, t.season_end), lead = +$("mode-val").value;
+  const W_ = 1000, pad = 24, days = 730, x = (d) => pad + (W_ - 2 * pad) * d / days;
+  const start = new Date(($("start").value || todayIso()) + "T12:00:00");
+  let g = `<rect x="${pad}" y="14" width="${W_ - 2 * pad}" height="30" fill="var(--soft)" stroke="var(--line)"/>`;
+  if (isFinite(lead)) for (let s0 = lead; s0 < days; s0 += 365) {
+    const a = Math.max(0, s0), b = Math.min(days, s0 + L);
+    if (b > a) g += `<rect x="${x(a)}" y="14" width="${Math.max(3, x(b) - x(a))}" height="30" fill="var(--chart-w)" opacity="0.55"/>` +
+                    `<text x="${x(a) + 3}" y="10">season in ${Math.round(a)} d</text>`;
+  }
+  for (let d = 0; d <= days; d++) {
+    const dt_ = new Date(start.getTime() + d * 864e5);
+    if (dt_.getDate() === 1) g += `<line x1="${x(d)}" x2="${x(d)}" y1="44" y2="50" stroke="var(--muted)"/>` +
+      (dt_.getMonth() % 3 === 0 ? `<text x="${x(d) - 10}" y="64">${MON[dt_.getMonth()]} ${dt_.getFullYear()}</text>` : "");
+  }
+  g += `<text x="${pad}" y="72">first day</text>`;
+  el.innerHTML = g;
+}
 $("lead-rec").onclick = () => { $("mode").value = "lead"; modeChanged(); };
 function modeChanged() {
   const m = $("mode").value;
@@ -703,6 +732,11 @@ function lonWhy() {
   else if ($("ts-lon").dataset.auto === "1") h = `Longitude set to ${esc($("ts-lon").value)}, the middle of this time zone. Type your tank's own (the nearest city is enough) for sunrise and sunset within a few minutes.`;
   $("lon-why").innerHTML = h;
 }
+(function fillTzList() {
+  let zones = [];
+  try { zones = Intl.supportedValuesOf("timeZone"); } catch (e) { /* older browser: free text still works */ }
+  $("tz-list").innerHTML = zones.map((z) => `<option value="${esc(z)}">${esc(z.replace(/_/g, " "))}</option>`).join("");
+})();
 $("ts-tz").oninput = () => { fitLon(); tzWhy(); };
 $("ts-lon").oninput = () => { LON_TYPED = true; delete $("ts-lon").dataset.auto; lonWhy(); };
 $("ts-mine").onclick = () => { const m = browserTz(); if (m) { $("ts-tz").value = m; fitLon(); tzWhy(); } };
@@ -780,7 +814,7 @@ function plainWarn(w) {
     return `On ${m[1]} days the reef is colder or warmer than your limits (${tf(m[2])} to ${tf(m[3])}); on those days the tank holds at the limit instead.`;
   if ((m = w.match(/^first watch night is (\d+) days after the start \(a repeating year allows up to about (\d+)\)/)))
     return `The first watch night comes only ${m[1]} days after the start (a full year out of season would be about ${m[2]}). The animals will not have lived through a full reef year first, so treat that first season as a practice run.`;
-  if (w === "no watch night in this calendar") return "This calendar has no watch nights at all. Make it longer (Advanced, question 4) or start it differently.";
+  if (w === "no watch night in this calendar") return "This calendar has no watch nights at all. Go back to question 4 and pick a different number of days.";
   if ((m = w.match(/^a lead over (\d+) days starts the tank inside/)))
     return `More than ${m[1]} days until the season puts the start inside the season itself (the reef year repeats). Use ${m[1]} or fewer.`;
   if ((m = w.match(/^locale is ([\w-]+): (.*)$/))) return `This reef's data is limited (${READY[m[1]] || m[1]}): ${m[2]}.`;
@@ -813,7 +847,7 @@ function showPreview(p) {
   chart(p.series);
 }
 function chart(ser) {
-  const W_ = 1000, H = 190, pad = 24, n = ser.length;
+  const W_ = 1000, H = 190, pad = 24, n = ser.length, SY = 205, SH = 50;
   const F = ser.map((d) => ({t: cToF(d.t), raw: cToF(d.raw), w: d.w, d: d.d}));
   const vals = F.flatMap((d) => [d.t, d.raw]);
   const lo = Math.floor(Math.min(...vals)), hi = Math.ceil(Math.max(...vals));
@@ -825,7 +859,23 @@ function chart(ser) {
   for (let v = lo; v <= hi; v += stepF) g += `<line x1="${pad}" x2="${W_ - pad}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="2" y="${y(v) + 4}">${v}°</text>`;
   F.forEach((d, i) => { if (d.d.endsWith("-01") && d.d.slice(5, 7) % 3 === 1) g += `<text x="${x(i)}" y="${H - 6}">${MON[+d.d.slice(5, 7) - 1]} ${d.d.slice(0, 4)}</text>`; });
   F.forEach((d, i) => { if (d.w) g += `<line x1="${x(i)}" x2="${x(i)}" y1="${pad - 8}" y2="${pad + 4}" stroke="var(--chart-w)" stroke-width="2"/>`; });
-  $("chart").innerHTML = g + `<path d="${line("raw")}" fill="none" stroke="var(--chart-raw)" stroke-width="1.5"/><path d="${line("t")}" fill="none" stroke="var(--chart-t)" stroke-width="2"/>`;
+  // spawning season: shaded behind the curve
+  let bands = "", a = null;
+  ser.forEach((d, i) => {
+    if (d.ws && a === null) a = i;
+    if ((!d.ws || i === n - 1) && a !== null) { const b = d.ws ? i : i - 1;
+      bands += `<rect x="${x(a)}" y="${pad - 8}" width="${Math.max(2, x(b) - x(a))}" height="${H - 2 * pad + 8}" fill="var(--chart-season)"/>`; a = null; }
+  });
+  // day/night strip: one column per day, 24 h tall; daylight from the top, full dark from the bottom
+  const cw = Math.max(1, (W_ - 2 * pad) / Math.max(1, n - 1));
+  let strip = `<rect x="${pad}" y="${SY}" width="${W_ - 2 * pad}" height="${SH}" fill="var(--chart-dusk)"/>`;
+  ser.forEach((d, i) => {
+    const day = Math.min(1440, d.pp || 0) / 1440 * SH, dark = Math.min(1440, d.dk || 0) / 1440 * SH;
+    strip += `<rect x="${(x(i) - cw / 2).toFixed(1)}" y="${SY}" width="${(cw + 0.3).toFixed(1)}" height="${day.toFixed(1)}" fill="var(--chart-day)"/>` +
+             `<rect x="${(x(i) - cw / 2).toFixed(1)}" y="${(SY + SH - dark).toFixed(1)}" width="${(cw + 0.3).toFixed(1)}" height="${dark.toFixed(1)}" fill="var(--chart-dark)"/>`;
+  });
+  strip += `<text x="2" y="${SY + 10}">day</text><text x="2" y="${SY + SH - 2}">dark</text>`;
+  $("chart").innerHTML = bands + g + `<path d="${line("raw")}" fill="none" stroke="var(--chart-raw)" stroke-width="1.5"/><path d="${line("t")}" fill="none" stroke="var(--chart-t)" stroke-width="2"/>` + strip;
 }
 function drawConfirm() {
   $("cf-done").hidden = true; $("cf-form").hidden = false; say("msg-apply", "");
@@ -919,16 +969,31 @@ $("btn-health").onclick = async () => {
 };
 
 // ---------------- 3 ----------------
+function linkify(t) {   // escaped text in, with https links and start.sh commands marked up
+  return esc(t).replace(/https?:\/\/[^\s,)]+[^\s,.)]/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)
+    .replace(/(sh scripts\/start\.sh(?: [a-z]+)?)/g, '<code class="cmd" title="click to copy">$1</code>');
+}
 function guide(el, steps, onTick) {
-  el.innerHTML = steps.map((c) => `<div class="gstep${c.done ? " done" : ""}"><h3>${esc(c.title || c.text)}</h3>
-    <ol>${(c.steps || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+  el.innerHTML = steps.map((c) => `<div class="gstep${c.done ? " done" : ""}"><h3>${c.auto ? '<span title="ticks itself">✓ </span>' : ""}${esc(c.title || c.text)}</h3>
+    <ol>${(c.steps || []).map((x) => `<li>${linkify(x)}</li>`).join("")}</ol>
     <label style="display:inline;color:inherit"><input type="checkbox" data-c="${esc(c.id)}" ${c.done ? "checked" : ""}> done
-    ${c.done ? `<span class="muted">(${esc(c.done)})</span>` : ""}</label></div>`).join("");
+    ${c.done && c.done !== "auto" ? `<span class="muted">(${esc(c.done)})</span>` : c.done === "auto" ? '<span class="muted">(checked by the page)</span>' : ""}</label></div>`).join("");
   el.querySelectorAll("[data-c]").forEach((e) => e.onchange = () => onTick(e.dataset.c, e.checked));
+  el.querySelectorAll("code.cmd").forEach((e) => e.onclick = () => { try { navigator.clipboard.writeText(e.textContent); e.title = "copied"; } catch (x) { /* no clipboard */ } });
 }
 function age(s) { return s == null ? "–" : s < 120 ? `${Math.round(s)} s ago` : s < 7200 ? `${Math.round(s / 60)} min ago` : `${r1(s / 3600)} h ago`; }
 async function loadItc() {
   await loadOverview();
+  const h = await api("/api/heater");
+  const ink = h.mode === "inkbird";
+  $("itc-card").hidden = !ink; $("itc-guide").hidden = !ink;
+  const c = h.last_check;
+  $("ht-st").innerHTML = kvh([
+    ["Last health check", c ? (c.ok ? `<span class="ok">passed</span>, ${esc(c.checked_utc)}` : `<span class="warn">${esc((c.problems || []).length)} to fix</span>, ${esc(c.checked_utc)}`) : 'not run yet: <code>sh scripts/start.sh check</code>'],
+    ["Water temperature", c && c.temp ? `${esc(tfc(c.temp.temp_c))}, ${esc(age(c.temp.age_s))}` : "no reading reported yet"],
+    ...(c && (c.problems || []).length ? [["To fix", (c.problems || []).map(esc).join("<br>")]] : [])]);
+  guide($("ht-list"), h.steps, async (id, done) => { await api("/api/heater/check", {item: id, done}); loadItc(); });
+  if (!ink) return;
   const s = await api("/api/itc");
   const last = s.last || {};
   $("itc-st").innerHTML = kvh([

@@ -82,6 +82,9 @@ def _routes(data, link_info=None):
         ("POST", "/api/plugs/power_on/set"): lambda b: core.power_on_set(
             d, b.get("name"), b.get("value"), b.get("confirm")),
         ("GET", "/api/itc"): lambda b: core.itc_status(d),
+        ("GET", "/api/heater"): lambda b: core.heater_status(d),
+        ("POST", "/api/heater/check"): lambda b: core.heater_check(d, b.get("item"), bool(b.get("done"))),
+        ("GET", "/api/host_status"): lambda b: core.host_status(d),
         ("POST", "/api/itc/check"): lambda b: core.itc_check(d, b.get("item"), bool(b.get("done"))),
         ("GET", "/api/telegram"): lambda b: core.telegram_status(d),
         ("POST", "/api/telegram/check"): lambda b: core.telegram_check(d, b.get("item"), bool(b.get("done"))),
