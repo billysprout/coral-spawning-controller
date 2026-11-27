@@ -1,6 +1,6 @@
 # Watch capture (spawn-night video)
 
-> **2026-11-26:** the watch nights use a turbidity sensor instead of this camera (TURBIDITY-SENSOR.md): a camera is too complex and costly for most hobbyists. This page is kept for a later camera build.
+> **2026-11-26:** watch the tank by eye through each watch window: that is the main way to catch a spawn. This camera build is parked (too complex and costly for most hobbyists); a low-cost turbidity sensor as a backup detector is an open quest. This page is kept for a later camera build.
 
 Goal: film the three *S. gigantea* through each watch night so a spawn can be seen and each animal sexed by what it releases (sperm: a smoky stream; eggs: visible grains). Owner's decision 2026-11-07: sex by watching spawns, no biopsy.
 
