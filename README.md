@@ -9,9 +9,11 @@ onboarding page (pick a reef, a species and a start point; set up the plugs and
 the fail-safes) and a tracking page (where the tank is on its cue calendar,
 with its own readings laid over the plan).
 
-It works on one tank so far and has not yet produced a spawn. Every tank that
-runs it, every spawning night logged and every fix makes the next attempt more
-likely. **Pick a quest below.**
+> **Unproven: this controller has not produced a spawn.** It runs on one tank
+> so far, and whether replaying a reef's cues in an aquarium triggers spawning
+> is still an open question. Treat it as an experiment, not a product. Help us
+> prove or disprove the idea: every tank that runs it, every watch night logged
+> (spawn or not) and every fix counts. **Pick a quest below.**
 
 **Start here: [docs/QUICKSTART.md](docs/QUICKSTART.md).** Hardware list and the
 "check before you buy" test: [docs/NEW-USER-HARDWARE.md](docs/NEW-USER-HARDWARE.md).
@@ -20,6 +22,10 @@ likely. **Pick a quest below.**
 depend on it. Your heater keeps its own thermostat and its own high cutoff. The
 controller starts in watch-only mode and switches nothing until you turn
 outputs on ([docs/TURNING-OUTPUTS-ON.md](docs/TURNING-OUTPUTS-ON.md)).
+
+**Watch the tank on spawn nights.** The tracking page counts down to each watch
+night. Watching the animals yourself through the watch window is the main way
+to catch a spawn; sensors are only a backup for one you miss or do not expect.
 
 ## Quests
 
@@ -56,6 +62,21 @@ ask, then send a pull request. Cue-data quests go to
 8. **A daily temperature pattern.** The hour-by-hour temperature offsets are
    flat zeros. Find a measured daily pattern on spawning reefs (reef loggers)
    to replace them.
+9. **Make it affordable.** Run everything on a Raspberry Pi instead of an
+   always-on computer. Find cheaper or discounted Tuya plugs, or a much cheaper
+   non-Tuya route, including DIY plugs and relays on an ESP32 (for example
+   ESPHome or Tasmota firmware). Grow the framework cheaply with add-on
+   sensors: a turbidity sensor to catch a spawn haze (a $10 analog probe on an
+   ADC), an infrared watch camera. Drive the lights people already own (Aqua
+   Illumination, Kessil and similar dimmable lights) for sunrise, sunset and
+   moonlight, instead of extra lamps on plugs.
+10. **Turbidity as a spawn detector.** Build on or rethink a low-cost turbidity
+    sensor that logs a spawn haze through the night: probe choice, placement,
+    sampling, filtering bubbles, calibration, and telling a real release from
+    drift. It is a data-driven backup for spawns that are missed or come
+    unexpectedly, never a replacement for watching the tank. A starting design:
+    a $10 analog probe (DFRobot SEN0189) on an ADS1115 ADC on a Pi, read once a
+    second as relative transmission against clear RO water.
 
 ## Repository map
 
@@ -154,7 +175,7 @@ The spawning records the reef windows come from: the
 * **Tests.** Import the cue tables first (several tests read them), then run
   the `test` profile.
 
-Built from commit `64dfd10` of the project repository.
+Built from commit `644b25b` of the project repository.
 
 ## Known limits
 
