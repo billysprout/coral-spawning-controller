@@ -326,6 +326,13 @@ def tier_b(lid, rows, prof, root, L):
 
 # ------------------------------------------------------------------ tier C
 USNO = "https://aa.usno.navy.mil/api/rstt/oneday?date={d}&coords={lat:.4f},{lon:.4f}&tz={tz:g}"
+# Rate limit: USNO posts none (checked 2026-11-26: https://aa.usno.navy.mil/data/api and
+# https://aa.usno.navy.mil/data/api_changelog), so the default of at most 1 request per second applies.
+# --pause defaults to 2 s and is never allowed below MIN_PAUSE.
+MIN_PAUSE = 1.0
+# After this many lookups in a row fail (each after its own backoff retries), USNO is treated as
+# unreachable: tier C stops and says so, instead of retrying for hours.
+STOP_AFTER_FAILS = 3
 
 
 def strata_sample(tables, profiles, n, rng):
@@ -360,13 +367,17 @@ def strata_sample(tables, profiles, n, rng):
 
 def tier_c(tables, profiles, n, rng, L, pause=2.0, cache_dir=None, retries=5):
     """USNO has no multi-date endpoint (rstt/oneday is one date per call), so calls are spaced instead:
-    `pause` seconds after every network call, exponential backoff (honouring Retry-After) on HTTP 429,
-    5xx and timeouts, and each response cached on disk so a rerun or a larger sample reuses earlier
-    calls and an interrupted run resumes where it stopped."""
-    stats = {"calls": 0, "cache_hits": 0, "retries": 0}
+    `pause` seconds after every network call (at least MIN_PAUSE), exponential backoff (honouring
+    Retry-After) on every failed request (any HTTP error, timeout, reset, DNS or TLS failure, bad JSON),
+    and each response cached on disk so a rerun or a larger sample reuses earlier calls and an
+    interrupted run resumes where it stopped. STOP_AFTER_FAILS failed lookups in a row stop tier C.
+    A failed lookup is reported under failed_lookups, never as a table defect."""
+    pause = max(pause, MIN_PAUSE)
+    stats = {"calls": 0, "cache_hits": 0, "retries": 0, "failed_lookups": 0}
 
     def fetch(url):
         for k in range(retries + 1):
+            wait = pause * 2 ** (k + 1)
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "anemones-cue-audit/1.0"})
                 with urllib.request.urlopen(req, timeout=30) as fh:
@@ -375,13 +386,16 @@ def tier_c(tables, profiles, n, rng, L, pause=2.0, cache_dir=None, retries=5):
                 time.sleep(pause)
                 return js
             except urllib.error.HTTPError as e:
-                if e.code != 429 and e.code < 500 or k == retries:
-                    raise
-                wait = float(e.headers.get("Retry-After") or 0) or pause * 2 ** (k + 1)
-            except (urllib.error.URLError, TimeoutError):
                 if k == retries:
                     raise
-                wait = pause * 2 ** (k + 1)
+                ra = e.headers.get("Retry-After") if e.headers else None
+                try:
+                    wait = max(wait, float(ra)) if ra else wait
+                except ValueError:
+                    pass
+            except (OSError, ValueError):  # URLError, timeouts, resets, DNS/TLS, bad JSON
+                if k == retries:
+                    raise
             stats["retries"] += 1
             time.sleep(min(wait, 300))
 
@@ -414,18 +428,28 @@ def tier_c(tables, profiles, n, rng, L, pause=2.0, cache_dir=None, retries=5):
         return ev
 
     picks = strata_sample(tables, profiles, n, rng)
-    units = defects = 0
+    units = defects = fails_in_row = 0
     per_locale = {}
     for i, (lid, r) in enumerate(picks):
         if i and i % 25 == 0:
             print(f"  tier C: {i}/{len(picks)} units, {stats['calls']} calls, {stats['cache_hits']} cached, "
-                  f"{stats['retries']} retries", file=sys.stderr, flush=True)
+                  f"{stats['retries']} retries, {stats['failed_lookups']} failed", file=sys.stderr, flush=True)
         d = dt.date.fromisoformat(r["date"])
         try:
             a, b = usno(lid, d), usno(lid, d + dt.timedelta(days=1))
         except Exception as e:  # noqa: BLE001 - network failures are reported, not fatal
-            L.check("C:usno_fetch", lid, False, f"{lid}:{r['date']}", str(e)[:120])
+            stats["failed_lookups"] += 1
+            fails_in_row += 1
+            stats["last_error"] = f"{lid}:{r['date']}: {str(e)[:160]}"
+            print(f"  tier C: lookup failed ({fails_in_row} in a row): {stats['last_error']}",
+                  file=sys.stderr, flush=True)
+            if fails_in_row >= STOP_AFTER_FAILS:
+                stats["stopped"] = (f"USNO unreachable: {fails_in_row} failed lookups in a row after "
+                                    f"{i + 1}/{len(picks)} units; tier C incomplete")
+                print(f"  tier C STOPPED: {stats['stopped']}", file=sys.stderr, flush=True)
+                break
             continue
+        fails_in_row = 0
         units += 1
         per_locale[lid] = per_locale.get(lid, 0) + 1
         before = len(L.defects)
@@ -503,12 +527,15 @@ def main(argv=None):
         extra = (f"  mean {b['mean']:+.3f} sd {b['sd']:.3f} p95|r| {b['abs_p95']:.3f}"
                  + (f"  biased: {','.join(b['flagged_locales'])}" if b["flagged_locales"] else "")) if b else ""
         print(f"  {fam:<22} {L.checked[fam]:>6} checked {by.get(fam, 0):>5} bad{extra}")
+    stopped = a.usno and rep["tier_c"].get("stopped")
     if a.usno:
         print("  tier C:", rep["tier_c"])
+        if stopped:
+            print(f"  tier C STOPPED: {stopped}")
     flagged = sorted({f"{fam}:{lid}" for fam, b in rep["bias"].items() for lid in b["flagged_locales"]})
     if flagged:
         print("  bias flags:", ", ".join(flagged))
-    return 1 if L.defects else 2 if flagged else 0
+    return 1 if L.defects else 2 if flagged else 3 if stopped else 0
 
 
 if __name__ == "__main__":

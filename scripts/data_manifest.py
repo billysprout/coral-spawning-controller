@@ -93,9 +93,12 @@ def pin(a):
         if any(b.get("flagged_locales") for b in rep.get("bias", {}).values()):
             sys.exit("refusing to pin: the audit report has bias flags")
         tc = rep.get("tier_c") or {}
+        c_done = bool(tc.get("units")) and not tc.get("stopped")  # a stopped USNO sample does not count as tier C
         audit = {"report": os.path.basename(a.audit_report), "rows": rep.get("rows"), "locales": rep.get("locales"),
-                 "tiers": rep.get("tiers") + ("C" if tc else ""), "n_defects": rep.get("n_defects"),
+                 "tiers": rep.get("tiers") + ("C" if c_done else ""), "n_defects": rep.get("n_defects"),
                  "usno_units": tc.get("units"), "usno_upper95_defect_rate": tc.get("upper95_defect_rate")}
+        if tc.get("stopped"):
+            audit["usno_stopped"] = tc["stopped"]
     try:
         commit = subprocess.run(["git", "-C", REPO, "rev-parse", "--short", "HEAD"], capture_output=True,
                                 text=True).stdout.strip()
