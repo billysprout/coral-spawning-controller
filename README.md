@@ -29,18 +29,25 @@ to catch a spawn; sensors are only a backup for one you miss or do not expect.
 
 ## Quests
 
-Open work, biggest wins first in each line. Open an issue to claim one or to
-ask, then send a pull request. Cue-data quests go to
-[reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables) instead.
+The project's one quest list. Open an issue here to claim one or to ask, then
+send a pull request. Quests about cue data (marked **cue data**) start from
+[reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables): its `SCHEMA.md`, `AUDIT.md` and
+`locales/added_records.csv` are the reference, and data changes land there as
+pull requests.
 
 1. **Harden the Inkbird path.** Reading and setting an Inkbird ITC-306A goes
    through its phone app in an Android emulator. It is the path of least
    resistance today, and fragile. Optimize, harden or refactor it (the emulator
    is not shipped here; the controller side is `scripts/tank_itc*.py` and
    `scripts/itc_setpoints.py`).
-2. **Better cue tables.** Find new reefs or refine the existing tables: better
-   temperature data, more dated spawning nights, better light data
-   ([reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables)).
+2. **Better cue tables** (cue data). Add dated spawning nights (species, date,
+   start time after sunset, site, citation, licence) to
+   `locales/added_records.csv`, above all for thin reefs and reefs not covered
+   yet (Seychelles, Lakshadweep, Cook Islands, subtropical eastern Australia).
+   Bring in situ reef logger temperatures with an open licence and better light
+   data to replace satellite values. Check a table against your own records or
+   the sources and report what is off (`AUDIT.md` has the method). Facts and
+   citations only, never copied text or figures.
 3. **More life-support hardware.** Add drivers for non-Tuya plugs, Home
    Assistant and similar hubs, and other temperature controllers
    (`scripts/tank_plugs.py`, `scripts/tank_inputs.py`).
@@ -53,15 +60,17 @@ ask, then send a pull request. Cue-data quests go to
    report.
 6. **A spawning competition.** Spread the word and get more tanks on a cue
    cycle.
-7. **Jamie Craggs' aquarium spawns.** The Horniman Coral Spawning Project's
+7. **Jamie Craggs' aquarium spawns** (cue data). The Horniman Coral Spawning Project's
    dated spawns are not in the cue tables yet. Someone with lawful access to the
    paywalled papers can collect the facts (species, date, start time, citation;
    never the papers themselves) and add them to the cue tables, or ask Craggs
    for the data with permission to publish it under the tables' licence
-   (CC BY-NC 4.0).
-8. **A daily temperature pattern.** The hour-by-hour temperature offsets are
-   flat zeros. Find a measured daily pattern on spawning reefs (reef loggers)
-   to replace them.
+   (CC BY-NC 4.0). Other popular aquarium corals with no record yet: birdsnest
+   (*Seriatopora*, a brooder that releases larvae), the torch coral (*Euphyllia
+   glabrescens*) and frogspawn (*Fimbriaphyllia divisa*).
+8. **A daily temperature pattern** (cue data). The hour-by-hour temperature
+   offsets are flat zeros. Find a measured daily pattern on spawning reefs (reef
+   loggers) to replace them.
 9. **Make it affordable.** Run everything on a Raspberry Pi instead of an
    always-on computer. Find cheaper or discounted Tuya plugs, or a much cheaper
    non-Tuya route, including DIY plugs and relays on an ESP32 (for example
@@ -86,14 +95,14 @@ ask, then send a pull request. Cue-data quests go to
     rooms push tanks over their limit. Find cheap, reliable cooling: fans over
     the water, DIY chillers (pump, heatsink and fans), room-level fixes, and
     how the controller should drive and watch them (never as life support).
-13. **Two-season and split spawning.** Some species spawn in two seasons about
+13. **Two-season and split spawning** (cue data, then controller). Some species spawn in two seasons about
     six months apart (Western Australia, the Maldives, Palau, Singapore); others
     split one season across two full moons in some years. The onboarding page
     labels each species' spawning pattern from the shipped windows; make it
-    exact from the dated nights in [reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables) (a pattern per
+    exact from the dated nights in reef-cue-tables (a pattern per
     species and reef, two windows where a reef has two seasons, a moon rule for
     split years), then let the controller plan two windows a year.
-14. **A standard pull request format for cue data.** One format for changes to
+14. **A standard pull request format for cue data** (cue data). One format for changes to
     the cue tables and the captive and wild spawning records, in two strengths.
     **Adding** (loose): new spawning nights, new reefs, new aquarium spawns; a
     short template with the required facts (species, date, site, start time if
@@ -200,7 +209,7 @@ The spawning records the reef windows come from: the
 * **Tests.** Import the cue tables first (several tests read them), then run
   the `test` profile.
 
-Built from commit `59ff0c1` of the project repository.
+Built from commit `dc40e27` of the project repository.
 
 ## Known limits
 
