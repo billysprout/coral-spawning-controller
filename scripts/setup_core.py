@@ -1389,7 +1389,7 @@ DECISIONS = [
     ("temp_calibrated", "Sensors", "Temperature counts as calibrated", "config:limits.temp_calibrated", "bool",
      "No written calibration record for the Inkbird yet."),
     ("dark_lux", "Sensors", "Light-leak limit in full dark (lux)", "config:limits.dark_lux_max", "num",
-     "0.6 lux in the example config. With a VEML7700 the quiet floor wandered 0.17 to 0.43 lux; not checked against a reference meter. Ignored if you have no lux sensor."),
+     "0.6 lux in the example config. On the first tank (VEML7700) a dark room read 0.04 to 0.14 lux over 12 nights, real leaks 0.9 to 13 lux, so 0.6 sits well between. A higher dark reading on your tank is usually room light (a status LED, a gap in the curtain), not the sensor: find it before raising the limit. Not checked against a reference meter. Ignored if you have no lux sensor."),
     ("dark_lux_min", "Sensors", "Minutes over the limit before light_leak alerts", "config:limits.dark_lux_confirm_min", "num",
      "3 minutes, so a run of minutes means a lamp, not the room."),
     # --- outputs and cues ---

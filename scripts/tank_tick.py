@@ -118,9 +118,10 @@ DEFAULT_CONFIG = {
         # room, not the chip. Re-measure with the sensor covered before trusting it.
         "dark_lux_max": 0.2,
         # Consecutive full-dark minutes above dark_lux_max before light_leak alerts.
-        # 1 = at once. The VEML7700's quiet floor wanders between 0.17 and 0.43 lux
-        # (2026-11-03 to 05, 1,300 dark minutes), so a limit near the floor needs a
-        # run of minutes to mean a lamp rather than the room.
+        # 1 = at once. The 0.17 to 0.43 lux "floor" of 2026-11-03 to 05 turned out to
+        # be room light (a status LED, the curtain); with those fixed, lamps-off night
+        # minutes read 0.04 to 0.14 lux (2026-11-14 to 25, 2,104 minutes) and real
+        # leaks 0.9 to 13 lux. The tank config uses 0.6 lux and 3 minutes.
         "dark_lux_confirm_min": 1,
         "plug_offline_min": 5,
         # A plug that fails to answer but is still on the network (answers pings)
