@@ -77,6 +77,31 @@ ask, then send a pull request. Cue-data quests go to
     unexpectedly, never a replacement for watching the tank. A starting design:
     a $10 analog probe (DFRobot SEN0189) on an ADS1115 ADC on a Pi, read once a
     second as relative transmission against clear RO water.
+11. **Cheap, correct moonlight.** Reef moonlight is about 0.1 to 0.3 lux at the
+    animal; a cheap LED strip on a plug easily runs several times brighter. Find
+    common lights, dimmers, diffusers or resistors that hit the target, and a
+    cheap way to check it at the animal (a lux sensor that reads that low, or a
+    calibrated phone method).
+12. **Summer cooling on a budget.** The cue calendar's warm peaks and summer
+    rooms push tanks over their limit. Find cheap, reliable cooling: fans over
+    the water, DIY chillers (pump, heatsink and fans), room-level fixes, and
+    how the controller should drive and watch them (never as life support).
+13. **Two-season and split spawning.** Some species spawn in two seasons about
+    six months apart (Western Australia, the Maldives, Palau, Singapore); others
+    split one season across two full moons in some years. The onboarding page
+    labels each species' spawning pattern from the shipped windows; make it
+    exact from the dated nights in [reef-cue-tables](https://github.com/realfakedoors-idaho/reef-cue-tables) (a pattern per
+    species and reef, two windows where a reef has two seasons, a moon rule for
+    split years), then let the controller plan two windows a year.
+14. **A standard pull request format for cue data.** One format for changes to
+    the cue tables and the captive and wild spawning records, in two strengths.
+    **Adding** (loose): new spawning nights, new reefs, new aquarium spawns; a
+    short template with the required facts (species, date, site, start time if
+    known, captive or wild, citation, licence), the format check passing, and
+    reviewers fixing small gaps. **Editing** (strict): any change to a value
+    already there; one change per pull request, the old and new value, the
+    reason and the source for each, the audit re-run and the data manifest
+    re-pinned. Deliver it as pull request templates and an automatic check.
 
 ## Repository map
 
