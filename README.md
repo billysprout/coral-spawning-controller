@@ -200,7 +200,7 @@ The spawning records the reef windows come from: the
 * **Tests.** Import the cue tables first (several tests read them), then run
   the `test` profile.
 
-Built from commit `059cc13` of the project repository.
+Built from commit `59ff0c1` of the project repository.
 
 ## Known limits
 
